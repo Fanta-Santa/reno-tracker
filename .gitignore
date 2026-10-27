@@ -1,0 +1,5 @@
+# Test leftovers
+tests/.tmp*
+tests/failure.png
+node_modules/
+.DS_Store
