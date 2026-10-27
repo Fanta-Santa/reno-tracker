@@ -11,6 +11,7 @@ import { ExpensesView, ExpenseDetailView, InboxView } from './views/expenses.js'
 import { SettingsView, ListSettingsView } from './views/settings.js';
 import { SetupView } from './views/setup.js';
 import { openAddMenu } from './views/capture.js';
+import { startBackgroundReading } from './reader/queue.js';
 
 function screenFor(path) {
   const parts = path.split('/').filter(Boolean);
@@ -128,7 +129,10 @@ function registerServiceWorker() {
 const root = document.getElementById('app');
 render(html`<${App} />`, root);
 loadAll()
-  .then(() => navigator.storage?.persist?.())
+  .then(() => {
+    startBackgroundReading();
+    return navigator.storage?.persist?.();
+  })
   .catch((err) => {
     console.error(err);
     render(html`<${ErrorScreen} error=${err} />`, root);

@@ -18,10 +18,15 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 - Destructive actions use an Undo toast (`toastUndo`), not confirmation dialogs. The exception is restore, which
   replaces everything and so asks first.
 - Room `type` (see `ROOM_TYPES` in `js/defaults.js`) decides where a room sits on the dashboard house.
+- Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
+  service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
+  `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.
+- Expense lines may carry `description` (a receipt item). Lines marked `auto` were made up by the app (e.g. the
+  unmatched remainder) and are not learned from.
 
 ## Checks before pushing
 
 ```sh
-node --test tests/unit.test.mjs
+node --test tests/unit.test.mjs tests/reader.test.mjs
 node tests/e2e.mjs --shots <scratch dir>   # Playwright + Chromium, phone viewport; review the screenshots
 ```

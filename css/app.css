@@ -48,7 +48,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { background: var(--bg); }
+/* White at the very top so the app blends into the iPhone status bar (clock, battery). */
+html { background: #fff; }
 html.sheet-open, html.sheet-open body { overflow: hidden; }
 
 body {
@@ -58,7 +59,7 @@ body {
   font-size: 17px;
   line-height: 1.35;
   color: var(--text);
-  background: linear-gradient(180deg, var(--bg-tint) 0, var(--bg) 340px) no-repeat, var(--bg);
+  background: linear-gradient(180deg, #fff 0, var(--bg-tint) 150px, var(--bg) 420px) no-repeat, var(--bg);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
@@ -677,6 +678,147 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
   .page { max-width: 720px; margin: 0 auto; }
   .nav-bar { margin: 0 calc(-1 * max(0px, (100vw - 720px) / 2)); padding-left: max(8px, calc((100vw - 720px) / 2 + 8px)); padding-right: max(8px, calc((100vw - 720px) / 2 + 8px)); }
 }
+
+/* ---------- Receipt reading: scanning screen ---------- */
+
+.sheet-body.scan { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+.scan-photo {
+  position: relative; width: 220px; height: 290px; border-radius: 22px; overflow: hidden;
+  display: grid; place-items: center; background: var(--surface); box-shadow: var(--shadow-float);
+}
+.scan-photo img, .scan-photo .thumb { width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 0; }
+.scan-line {
+  position: absolute; left: 0; right: 0; top: -70px; height: 70px;
+  background: linear-gradient(180deg, rgba(0, 122, 255, 0), rgba(0, 122, 255, 0.3) 80%, rgba(40, 170, 255, 0.95));
+  animation: scan 1.8s ease-in-out infinite;
+}
+@keyframes scan { to { top: 100%; } }
+.scan-status { width: min(100%, 320px); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.scan-status .meter { width: 100%; }
+.scan-status .meter > span { background: var(--accent); }
+.scan-status small { color: var(--text-2); }
+
+/* ---------- Receipt reading: confirmation cards ---------- */
+
+.sheet-body.review { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.review-progress { position: relative; display: flex; align-items: center; justify-content: center; min-height: 32px; }
+.review-progress .icon-btn { position: absolute; left: -8px; color: var(--accent); }
+.dots { display: flex; gap: 6px; }
+.dots span { width: 7px; height: 7px; border-radius: 4px; background: var(--fill-strong); transition: width 0.35s var(--spring), background-color 0.3s; }
+.dots span.done { background: rgba(0, 122, 255, 0.45); }
+.dots span.on { width: 22px; background: var(--accent); }
+
+.card-stack { position: relative; flex: 1; display: flex; min-height: 0; padding-bottom: 18px; }
+.card-ghost {
+  position: absolute; inset: 0 0 18px; border-radius: var(--radius-xl); background: var(--surface);
+  box-shadow: var(--shadow-card); transform-origin: 50% 100%;
+}
+.card-ghost.g1 { transform: translateY(9px) scale(0.95); opacity: 0.75; }
+.card-ghost.g2 { transform: translateY(18px) scale(0.9); opacity: 0.45; }
+.flash-card {
+  position: relative; z-index: 1; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px 18px 16px; border-radius: var(--radius-xl); background: var(--surface);
+  box-shadow: 0 12px 34px rgba(16, 16, 20, 0.12); touch-action: pan-y;
+  transition: transform 0.35s var(--spring);
+}
+.flash-card.from-right { animation: card-in-right 0.45s var(--spring) both; }
+.flash-card.from-left { animation: card-in-left 0.45s var(--spring) both; }
+@keyframes card-in-right { from { opacity: 0; transform: translateX(70px) rotate(3deg) scale(0.97); } }
+@keyframes card-in-left { from { opacity: 0; transform: translateX(-70px) rotate(-3deg) scale(0.97); } }
+.swipe-hint {
+  position: absolute; z-index: 2; top: 14px; display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px;
+  border-radius: 12px; font-size: 14px; font-weight: 700; opacity: 0; transition: opacity 0.15s; pointer-events: none;
+}
+.swipe-hint.yes { right: 14px; background: var(--green); color: #fff; }
+.swipe-hint.back { left: 14px; background: var(--fill-strong); color: var(--text); }
+.flash-card[data-hint="yes"] .swipe-hint.yes, .flash-card[data-hint="back"] .swipe-hint.back { opacity: 1; }
+
+.fc-body { display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
+.fc-body h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-top: 2px; }
+.fc-kicker { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.fc-sub { color: var(--text-2); font-size: 15px; }
+.fc-sub strong { color: var(--text); }
+.fc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.fc-receipt {
+  flex: none; width: 64px; height: 84px; border-radius: 12px; overflow: hidden; background: var(--surface-2);
+  box-shadow: var(--shadow-card);
+}
+.fc-receipt img, .fc-receipt .thumb { width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 0; }
+.fc-fields { display: flex; flex-direction: column; gap: 10px; }
+.fc-field {
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--surface-2); transition: box-shadow 0.2s, background-color 0.2s;
+}
+.fc-field:focus-within { background: var(--surface); box-shadow: 0 0 0 2px var(--accent); }
+.fc-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.unsure {
+  padding: 1px 7px; border-radius: 6px; background: var(--orange-soft); color: #b35c00;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.fc-field input {
+  width: 100%; min-width: 0; padding: 2px 0; border: 0; outline: none; background: none;
+  font-size: 20px; font-weight: 600; -webkit-appearance: none; appearance: none;
+}
+.fc-field input[type="date"] { text-align: left; min-height: 30px; }
+.fc-field small { color: var(--text-2); }
+.fc-field.total input { font-family: var(--font-round); font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.fc-money { display: flex; align-items: center; gap: 2px; font-family: var(--font-round); }
+.fc-money > span { font-size: 24px; font-weight: 800; color: var(--text-3); }
+.fc-money.small { min-height: 42px; padding: 0 10px; border-radius: 11px; background: var(--surface); }
+.fc-money.small > span { font-size: 16px; }
+.fc-money.small input { width: 100%; min-width: 0; border: 0; outline: none; background: none; font-family: var(--font-round); font-size: 16px; font-weight: 700; }
+.fc-chips { margin-top: -4px; }
+.fc-actions { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+
+.room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.room-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 84px; padding: 14px;
+  border-radius: 18px; background: var(--surface-2); text-align: left; font-weight: 600; overflow-wrap: anywhere;
+  transition: transform 0.15s, background-color 0.2s, box-shadow 0.2s;
+}
+.room-tile:active { transform: scale(0.97); }
+.room-tile.on { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent); }
+.room-emoji { font-size: 28px; line-height: 1; }
+
+.fc-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--surface-2); }
+.fc-item-desc { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: 18px; font-weight: 600; }
+.fc-item-amount { font-family: var(--font-round); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.sum-list { display: flex; flex-direction: column; border-radius: var(--radius-md); background: var(--surface-2); overflow: hidden; }
+.sum-row + .sum-row { border-top: 0.5px solid var(--separator); }
+.sum-main { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; text-align: left; }
+.sum-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sum-desc { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sum-text small { color: var(--text-2); font-size: 12.5px; }
+.sum-main strong { font-family: var(--font-round); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sum-main strong.neg { color: #1f9d48; }
+.sum-row.extra .sum-desc { color: var(--text-2); }
+.sum-row.open { background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent-soft); }
+.sum-edit { display: flex; flex-direction: column; gap: 8px; padding: 0 14px 12px; }
+.sum-edit > input { min-height: 42px; padding: 8px 10px; border: 0; border-radius: 11px; background: var(--surface-2); font-size: 16px; outline: none; }
+.sum-row.open .split-selects select, .sum-row.open .fc-money.small, .sum-row.open .inline-switch { background-color: var(--surface-2); }
+.inline-switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 42px;
+  padding: 0 4px 0 10px; border-radius: 11px; background: var(--surface); font-size: 15px;
+}
+.inline-switch .icon { color: var(--tool); }
+.danger-text { color: var(--red); align-self: flex-start; }
+.sum-check { display: flex; align-items: center; gap: 8px; padding: 2px; font-size: 14px; font-weight: 600; }
+.sum-check.ok { color: #1f9d48; }
+.sum-check.warn { color: #c26a00; }
+
+/* Inbox tiles show what the reader found */
+.inbox-tile-photo { position: relative; display: block; }
+.tile-badge {
+  position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px;
+  border-radius: 10px; background: var(--glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font-size: 12px; font-weight: 700;
+}
+.tile-badge.ready { background: var(--green); color: #fff; }
+.spinner.tiny { width: 14px; height: 14px; border-width: 2px; }
+
+/* Item name on split lines in the form */
+.split-desc { width: 100%; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 11px; background: var(--surface); font-size: 16px; outline: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

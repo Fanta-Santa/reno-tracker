@@ -222,7 +222,10 @@ function Sheet({ render, full, dismissible, close, variant, closing }) {
 export function SheetHost() {
   const list = sheets.use();
   useEffect(() => {
-    document.documentElement.classList.toggle('sheet-open', list.some((s) => !s.closing));
+    const open = list.some((s) => !s.closing);
+    document.documentElement.classList.toggle('sheet-open', open);
+    // Dim the status bar along with the page behind a sheet (where iOS supports it).
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', open ? '#adadad' : '#ffffff');
   }, [list]);
   return list.map((s) => html`<${Sheet} key=${s.id} ...${s} />`);
 }

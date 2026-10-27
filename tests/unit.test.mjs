@@ -111,15 +111,22 @@ test('readZip rejects files that are not zips', async () => {
 
 test('the offline cache lists every app file, and versions match', () => {
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
-  const listed = new Set([...sw.matchAll(/^\s+'([^']+)',$/gm)].map((m) => m[1]));
+  const list = (name) => new Set([...sw.match(new RegExp(`const ${name} = \\[([^\\]]*)\\]`))[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
+  const files = list('FILES');
+  const reader = list('READER_FILES');
   const walk = (dir) => readdirSync(join(ROOT, dir)).flatMap((name) => {
     const rel = `${dir}/${name}`;
     return statSync(join(ROOT, rel)).isDirectory() ? walk(rel) : [rel];
   });
-  const needed = [...walk('js'), ...walk('css'), ...walk('icons'), ...walk('vendor')]
-    .filter((f) => /\.(js|mjs|css|png|svg)$/.test(f));
-  for (const f of needed) assert.ok(listed.has(f), `sw.js FILES is missing ${f}`);
-  for (const f of listed) {
+  const appFiles = [...walk('js'), ...walk('css'), ...walk('icons'), ...walk('vendor')]
+    .filter((f) => /\.(js|mjs|css|png|svg)$/.test(f) && !f.startsWith('vendor/tesseract/'));
+  for (const f of appFiles) assert.ok(files.has(f), `sw.js FILES is missing ${f}`);
+  // The big receipt-reader files are fetched on first use, not with every update.
+  for (const f of walk('vendor/tesseract').filter((x) => /\.(js|gz)$/.test(x))) {
+    assert.ok(reader.has(f), `sw.js READER_FILES is missing ${f}`);
+    assert.ok(!files.has(f), `${f} shouldn't be in FILES (it's downloaded on first use)`);
+  }
+  for (const f of [...files, ...reader]) {
     if (f !== './') assert.ok(statSync(join(ROOT, f)), `sw.js lists ${f} but it doesn't exist`);
   }
   const swVersion = sw.match(/const VERSION = '([^']+)'/)[1];

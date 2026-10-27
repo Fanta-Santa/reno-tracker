@@ -46,6 +46,7 @@ export async function createBackup() {
     stores: state.stores,
     expenses: state.expenses,
     quotes: state.quotes,
+    learned: state.learned,
     files: fileList,
   };
   entries.unshift({ name: 'backup.json', data: JSON.stringify(data, null, 1) });
