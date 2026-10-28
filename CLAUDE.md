@@ -6,6 +6,9 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 
 ## Rules
 
+- **Font:** `"Aptos"` first (where installed), then Albert Sans (OFL, bundled in `vendor/fonts/`). Aptos itself
+  must not be bundled: its licence doesn't allow it on a public website.
+- **Cards are glass:** use `var(--card)` + `var(--card-blur)` + `var(--card-border)`, not solid white.
 - **No build step, no npm dependencies at runtime.** Plain ES modules; third-party code is copied into `vendor/`
   (Preact + htm for UI, pdf.js for PDFs). Use `.js` extensions for anything the browser loads as a module.
 - **Every asset path is relative** (no leading `/`): the site is served from `/reno-tracker/`.
@@ -18,10 +21,13 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 - Destructive actions use an Undo toast (`toastUndo`), not confirmation dialogs. The exception is restore, which
   replaces everything and so asks first.
 - Room `type` (see `ROOM_TYPES` in `js/defaults.js`) decides where a room sits on the dashboard house
-  (`js/views/house.js`, hand-drawn isometric SVG; `buildHouse()` lays it out).
+  (`js/views/house.js`, hand-drawn isometric SVG; `buildHouse()` lays it out). The house is always single-storey:
+  an early-1900s Australian cottage (cream weatherboards, red corrugated iron, bullnose verandah). Up to 3 rooms in
+  a row; more go either side of a central hallway with low-cut interior walls. The roof floats up and back.
 - Dashboard numbers come from `js/stats.js` (pure). Budget status: 'none' | 'ok' | 'near' (90%+, or accepted quotes
   would tip it over) | 'over'. Status colours (#0ca30c / #fab219 / #d03b3b) always come with a ✓ / ! / ‼ badge.
 - Charts (`js/ui/charts.js`): spending is #2a78d6, tools #eb6834 (pair validated for colour blindness); one axis only.
+  Lines are smoothed with `smoothPath()` (monotone cubic, never overshoots).
 - Screens that read the store use `useStore()`, which catches up on changes made before it subscribed.
 - Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and

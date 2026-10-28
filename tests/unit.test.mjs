@@ -119,7 +119,7 @@ test('the offline cache lists every app file, and versions match', () => {
     return statSync(join(ROOT, rel)).isDirectory() ? walk(rel) : [rel];
   });
   const appFiles = [...walk('js'), ...walk('css'), ...walk('icons'), ...walk('vendor')]
-    .filter((f) => /\.(js|mjs|css|png|svg)$/.test(f) && !f.startsWith('vendor/tesseract/'));
+    .filter((f) => /\.(js|mjs|css|png|svg|woff2)$/.test(f) && !f.startsWith('vendor/tesseract/'));
   for (const f of appFiles) assert.ok(files.has(f), `sw.js FILES is missing ${f}`);
   // The big receipt-reader files are fetched on first use, not with every update.
   for (const f of walk('vendor/tesseract').filter((x) => /\.(js|gz)$/.test(x))) {

@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetStatus, computeStats, quoteOutstanding, spendOverTime } from '../js/stats.js';
+import { smoothPath } from '../js/ui/charts.js';
 
 const rooms = [
   { id: 'k', name: 'Kitchen', type: 'kitchen', budgetCents: 100000 },
@@ -80,4 +81,17 @@ test('spend over time: days for a short reno, weeks or months for longer ones', 
   assert.equal(monthly.points.at(-1).label, 'Aug 27');
 
   assert.deepEqual(spendOverTime([], '2026-10-24').points, []);
+});
+
+test('the spend line is smooth but never overshoots a running total', () => {
+  const pts = [[0, 100], [10, 100], [20, 40], [30, 38], [40, 0]]; // y grows downwards on screen
+  const d = smoothPath(pts);
+  assert.match(d, /^M0\.0,100\.0 C/);
+  assert.equal((d.match(/C/g) || []).length, 4);
+  // Every control point stays between its segment's end values (no bulges above or below the data).
+  const nums = d.replace(/[MC]/g, ' ').trim().split(/[ ,]+/).map(Number);
+  const ys = nums.filter((_, i) => i % 2 === 1);
+  for (const yv of ys) assert.ok(yv >= 0 && yv <= 100, `control point ${yv} overshoots`);
+  // Flat stretches stay flat.
+  assert.match(d, /C3\.3,100\.0 6\.7,100\.0 10\.0,100\.0/);
 });
