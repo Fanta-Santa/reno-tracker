@@ -17,6 +17,7 @@ import { openViewer } from '../ui/viewer.js';
 import { openExpenseForm } from './expense-form.js';
 import { captureToInbox } from './capture.js';
 import { reviewInbox } from './review.js';
+import { openExportSheet } from './export.js';
 import { readerEnabled, useReadingId, foundSomething } from '../reader/queue.js';
 
 // ---------- Filters ----------
@@ -44,7 +45,10 @@ function searchText(e) {
     formatDate(e.date), e.receiptText].join(' ').toLowerCase();
 }
 
-/** Returns matching expenses, each with `shownCents`: the part of it that matches room/category/tool filters. */
+/**
+ * Returns matching expenses, each with `lines` and `shownCents`: the lines (and their total) that match the
+ * room/category/tool filters, or all of them.
+ */
 function applyFilters(list, f, q) {
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const lineFilter = f.rooms.length || f.categories.length || f.toolsOnly;
@@ -56,8 +60,9 @@ function applyFilters(list, f, q) {
     if (f.receipt === 'has' && !e.fileIds.length) continue;
     if (f.receipt === 'missing' && e.fileIds.length) continue;
     let shownCents = e.totalCents ?? 0;
+    let lines = e.lines;
     if (lineFilter) {
-      const lines = e.lines.filter((l) => (!f.rooms.length || f.rooms.includes(l.roomId))
+      lines = e.lines.filter((l) => (!f.rooms.length || f.rooms.includes(l.roomId))
         && (!f.categories.length || f.categories.includes(l.categoryId))
         && (!f.toolsOnly || l.isTool));
       if (!lines.length) continue;
@@ -67,7 +72,7 @@ function applyFilters(list, f, q) {
       const text = searchText(e);
       if (!words.every((w) => text.includes(w))) continue;
     }
-    out.push({ e, shownCents });
+    out.push({ e, lines, shownCents });
   }
   const cmp = {
     newest: (a, b) => b.e.date.localeCompare(a.e.date) || b.e.createdAt - a.e.createdAt,
@@ -244,8 +249,17 @@ export function ExpensesView() {
     ? `${formatMoney(total)} · ${results.length} ${results.length === 1 ? 'expense' : 'expenses'}${nFilters || q ? ' shown' : ''}`
     : null;
 
+  // Export the list as shown (filtered), or everything.
+  const exportList = () => openExportSheet({
+    filtered: nFilters || q.trim() ? {
+      items: results.map((r) => ({ expense: r.e, lines: r.lines })),
+      label: [...chips.map((c) => c.label), ...(q.trim() ? [`“${q.trim()}”`] : [])].join(' · '),
+    } : undefined,
+  });
+
   return html`<${Page} title="Expenses" subtitle=${subtitle}
-    actions=${html`<button class="nav-icon-btn" onClick=${chooseSort} aria-label="Sort"><${Icon} name="sort" /></button>`}>
+    actions=${html`${all.length > 0 && html`<button class="nav-icon-btn" onClick=${exportList} aria-label="Export"><${Icon} name="share" /></button>`}
+      <button class="nav-icon-btn" onClick=${chooseSort} aria-label="Sort"><${Icon} name="sort" /></button>`}>
     ${inbox.length > 0 && html`<button class="inbox-banner" onClick=${() => navigate('/inbox')}>
       <span class="inbox-banner-icon"><${Icon} name="inbox" /></span>
       <span class="inbox-banner-text"><strong>${inbox.length} ${inbox.length === 1 ? 'receipt' : 'receipts'} to sort</strong>

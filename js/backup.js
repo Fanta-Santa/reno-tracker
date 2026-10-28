@@ -9,6 +9,7 @@ import * as db from './db.js';
 import { createZip, readZip } from './zip.js';
 import { state, replaceEverything, setPrefs } from './store.js';
 import { todayISO } from './format.js';
+import { shareFile } from './device.js';
 
 const APP_ID = 'reno-tracker';
 const SCHEMA = 1;
@@ -56,29 +57,10 @@ export async function createBackup() {
   return new File([blob], name, { type: 'application/zip' });
 }
 
-/**
- * Hands the backup to the phone: the Share sheet on iPhone ("Save to Files"),
- * or a normal download elsewhere. Returns false if the person cancelled.
- */
+/** Hands the backup to the phone (Share sheet → Save to Files, or a download). Returns false if cancelled. */
 export async function saveBackup() {
   const file = await createBackup();
-  if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: file.name });
-    } catch (err) {
-      if (err.name === 'AbortError') return false;
-      throw err;
-    }
-  } else {
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
+  if (!(await shareFile(file))) return false;
   await setPrefs({ lastBackupAt: Date.now() });
   return true;
 }

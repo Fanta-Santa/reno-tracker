@@ -4,9 +4,9 @@
 
 import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
 import { state, useStore, inboxExpenses, saveItem } from '../store.js';
-import { formatMoney, formatDate, daysBetween, todayISO } from '../format.js';
+import { formatMoney, formatDate, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
-import { computeStats, spendOverTime, upcomingPayments } from '../stats.js';
+import { backupReminder, computeStats, spendOverTime, upcomingPayments } from '../stats.js';
 import { Page, Group, EmptyState, withBusy } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
@@ -145,8 +145,8 @@ export function DashboardView() {
   const filed = state.expenses.filter((e) => e.status !== 'inbox');
   const missing = filed.filter((e) => !e.fileIds.length).length;
   const lastBackup = state.prefs.lastBackupAt;
-  const backupDays = lastBackup ? daysBetween(todayISO(new Date(lastBackup)), todayISO()) : null;
-  const backupDue = filed.length > 0 && (backupDays == null || backupDays >= 14);
+  const backup = backupReminder(state, lastBackup);
+  const backupDue = backup.due;
 
   const showRoom = (id) => {
     select(id);
@@ -220,7 +220,9 @@ export function DashboardView() {
       </button>`}
       ${backupDue && html`<button class="row tappable todo" onClick=${runBackup}>
         <span class="row-icon" style="background:#34C759"><${Icon} name="backup" size=${18} /></span>
-        <span class="row-label">Back up your receipts<small>${backupDays != null ? `Last backup ${backupDays} days ago` : 'Not backed up yet'}</small></span>
+        <span class="row-label">Back up your receipts<small>${lastBackup
+          ? `${backup.changes} ${backup.changes === 1 ? 'change' : 'changes'} since your last backup on ${formatDate(todayISO(new Date(lastBackup)))}`
+          : 'Not backed up yet'}</small></span>
         <${Icon} name="chevronRight" size=${16} class="row-chevron" stroke=${2.2} />
       </button>`}
     <//>`}

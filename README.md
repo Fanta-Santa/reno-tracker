@@ -67,7 +67,20 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - Bills to pay go in the same way. Switch on "Payment due" to set when the next payment is due: it shows under
   Payments coming up on the dashboard (overdue ‼, due within a week !) with the total due in the next 30 days.
 
-Coming next: CSV/Excel export, backup reminders, and the install guide for friends.
+## Export and backups (Stage 4)
+
+- Settings → Export to Excel or CSV, or the share button on the Expenses list to export just what you've filtered
+  (a room, a store, a date range…).
+- Excel: tabs for a Summary (totals, GST, budget, by room and category), every Expense, every Item (splits on
+  their own rows, with their share of the GST) and your Quotes. Dates are real dates and amounts are real numbers,
+  so sums, filters and pivot tables work. CSV: every item, for any spreadsheet app.
+- Choose everything, this financial year or last (1 July to 30 June), or the filtered list.
+- Switch on Receipt photos to get one .zip with the spreadsheet and every photo and PDF, named to match the
+  spreadsheet's references (R001 2026-10-01 Bunnings.jpg).
+- The backup reminder on the dashboard only shows when something has changed since your last backup: after
+  14 days, or sooner once 10 or more receipts and quotes are new or changed.
+
+Coming next: the install guide for friends, and dark mode.
 
 ## How it's built
 
@@ -82,6 +95,7 @@ Plain HTML, CSS and JavaScript with no build step. Opening `index.html` through 
 | `js/stats.js` | Dashboard numbers: budget status, by room, by category, spend over time |
 | `js/images.js` | Shrinks photos and makes thumbnails; reads PDFs |
 | `js/backup.js`, `js/zip.js` | Backup and restore as one .zip file |
+| `js/export.js` | Spreadsheet export: Excel (.xlsx) and CSV |
 | `js/ui/` | Shared pieces: sheets, Undo bar, switches, receipt viewer |
 | `js/reader/` | Receipt reading: text from photos/PDFs (`ocr.js`), making sense of it (`parse.js`), category suggestions (`categorize.js`), background reading (`queue.js`) |
 | `js/views/` | The screens (`review.js` is the confirmation cards, `quotes.js` the Quotes tab) |
