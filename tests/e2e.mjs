@@ -323,11 +323,25 @@ try {
     await page.locator('.bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     await page.getByText('2 expenses are missing a receipt').waitFor();
     await shot('dashboard');
-    // Put the roof back on: the rooms close up and the status comes back.
+    // Drag the roof back down onto the house: the rooms close up and the status comes back.
     if (await page.locator('.room-card h3').count()) await tap(page.locator('.room-card').getByRole('button', { name: 'Close' }));
-    await tap(page.getByRole('button', { name: 'Put the roof back on' }));
+    await page.locator('.house-caption').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+    const roof = await page.locator('.layer-roof').boundingBox();
+    const [mx, my] = await page.evaluate(() => { // how far the roof was lifted, in screen pixels
+      const svg = document.querySelector('.house-svg');
+      const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      const [, x, y] = document.querySelector('.layer-roof').style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+      return [Number(x) * scale, Number(y) * scale];
+    });
+    const [cx, cy] = [roof.x + roof.width / 2, roof.y + roof.height * 0.6];
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(cx - (mx * i) / 10, cy - (my * i) / 10);
+    await page.mouse.up();
     await page.locator('.house.closed').waitFor();
     await page.locator('.nav-actions .status-pill').waitFor();
+    assert.equal(await page.locator('.house-caption').count(), 0);
   });
 
   await check('settings lists and rename a store', async () => {
@@ -706,6 +720,26 @@ try {
     await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
     await expectToast('Payment saved');
     await page.locator('.q-pay-row', { hasText: 'Still to pay' }).filter({ hasText: '$4,500.00' }).waitFor();
+  });
+
+  await check('a payment due date shows under Payments coming up on the dashboard', async () => {
+    await tap(page.getByRole('button', { name: 'Edit' }));
+    await tap(sheet().getByRole('switch', { name: 'Payment due' }));
+    const due = new Date(Date.now() - 2 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }); // 2 days ago
+    await sheet().locator('input[type="date"]').last().fill(due);
+    await shot('quote-due');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Quote saved');
+    await page.locator('.row', { hasText: 'Next payment due' }).getByText('Overdue by 2 days').waitFor();
+    await tap(page.locator('.tab', { hasText: 'Home' }));
+    const card = page.locator('.due-card');
+    await card.locator('.due-row', { hasText: 'Deck Builders Co' }).getByText('Overdue by 2 days').waitFor();
+    await card.locator('.due-row', { hasText: 'Deck Builders Co' }).getByText('$4,500.00').waitFor();
+    await card.locator('.due-foot').getByText('$4,500.00').waitFor();
+    await card.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await shot('dashboard-due');
+    await tap(card.locator('.due-row', { hasText: 'Deck Builders Co' }));
+    await page.locator('h1', { hasText: 'Deck Builders Co' }).waitFor();
   });
 
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);

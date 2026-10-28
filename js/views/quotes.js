@@ -6,14 +6,14 @@ import {
   state, useStore, activeRooms, activeCategories, roomById, categoryById, storeByName, blankExpense, blankQuote,
   saveQuote, setQuoteStatus, deleteQuote, saveItem, uid,
 } from '../store.js';
-import { centsToInput, formatDate, formatMoney, parseMoney, splitByWeights } from '../format.js';
+import { addDays, centsToInput, daysBetween, formatDate, formatMoney, parseMoney, splitByWeights, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
 import { quoteParts, quoteProgress, quoteTotals } from '../stats.js';
 import { prepareFile } from '../images.js';
 import { suggestCategory, breakdownFromItems } from '../reader/categorize.js';
 import { scanFiles, readerEnabled } from '../reader/queue.js';
 import {
-  Page, Group, Row, EmptyState, Chips, Segmented, Thumb, SwipeRow, openSheet, SheetHeader, toast, toastUndo,
+  Page, Group, Row, EmptyState, Chips, Segmented, Switch, Thumb, SwipeRow, openSheet, SheetHeader, toast, toastUndo,
   withBusy, pickFiles,
 } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
@@ -30,6 +30,20 @@ const STATUS_OPTIONS = [
 ];
 
 const quoteTitle = (q) => q.supplier || q.description || 'Quote';
+
+/**
+ * When a payment is due, in words, with a status for its badge: overdue ('over'), due within a week ('near'),
+ * or later ('none'). days: from today (negative = overdue).
+ */
+export function dueText(days, iso) {
+  if (days < 0) return { text: `Overdue by ${-days} ${days === -1 ? 'day' : 'days'}`, status: 'over' };
+  if (days === 0) return { text: 'Due today', status: 'near' };
+  if (days === 1) return { text: 'Due tomorrow', status: 'near' };
+  if (days <= 7) return { text: `Due in ${days} days`, status: 'near' };
+  return { text: `Due ${formatDate(iso)}`, status: 'none' };
+}
+const isOpen = (q) => q.status === 'quoted' || q.status === 'accepted';
+const dueFor = (q) => (q.dueDate && isOpen(q) ? dueText(daysBetween(todayISO(), q.dueDate), q.dueDate) : null);
 
 // ---------- Payments ----------
 
@@ -107,6 +121,7 @@ function StatusToggle({ quote }) {
 
 function QuoteCard({ quote }) {
   const p = quoteProgress(quote, state.expenses);
+  const due = dueFor(quote);
   const room = roomById(quote.roomId);
   const next = { quoted: ['accepted', 'Accept', 'check'], accepted: ['paid', 'Paid', 'check'], paid: ['accepted', 'Reopen', 'restore'], declined: ['quoted', 'Restore', 'restore'] }[quote.status];
   const actions = [{ label: next[1], icon: next[2], tone: 'accent', onAction: () => changeStatus(quote, next[0]) }];
@@ -121,6 +136,7 @@ function QuoteCard({ quote }) {
         </div>
         <div class="q-amount"><strong>${formatMoney(quote.amountCents, { whole: true })}</strong><small>${formatDate(quote.date)}</small></div>
       </div>
+      ${due && html`<span class="tag due s-${due.status}"><${Icon} name="calendar" size=${12} stroke=${2.2} />${due.text}</span>`}
       <${StatusToggle} quote=${quote} />
       ${quote.status === 'accepted' && html`<div class="q-progress">
         <span class="meter small"><span style=${`width:${Math.min(100, p.pct * 100)}%`} /></span>
@@ -147,7 +163,7 @@ export function QuotesView() {
   return html`<${Page} title="Quotes" subtitle=${state.quotes.length ? `${state.quotes.length} ${state.quotes.length === 1 ? 'quote' : 'quotes'}` : null}
     actions=${html`<button class="nav-icon-btn" onClick=${() => openQuoteForm()} aria-label="Add a quote"><${Icon} name="plus" /></button>`}>
     ${!state.quotes.length ? html`<${EmptyState} emoji="📝" title="No quotes yet"
-        text="Log quotes from tradies and suppliers, flick them to Accepted when you go ahead, then record payments as you make them.">
+        text="Log quotes from tradies and suppliers (and bills to pay), flick them to Accepted when you go ahead, add when payments are due, then record payments as you make them.">
         <button class="wide-btn primary" onClick=${() => openQuoteForm()}>Add a quote</button>
       <//>`
       : html`<div class="glass-card q-summary">
@@ -220,6 +236,8 @@ export function QuoteDetailView({ id }) {
 
     <${Group} title="Details">
       <${Row} icon="store" iconBg="#FF9500" label="Supplier" detail=${quote.supplier || '—'} />
+      ${dueFor(quote) && html`<${Row} icon="calendar" iconBg=${dueFor(quote).status === 'over' ? '#d03b3b' : '#FF9500'} label="Next payment due"
+        detail=${dueFor(quote).status === 'none' ? formatDate(quote.dueDate) : `${formatDate(quote.dueDate)} · ${dueFor(quote).text.replace(/^Due /, '')}`} />`}
       ${quote.description && html`<${Row} icon="tag" iconBg="#5856D6" label="For" detail=${quote.description} />`}
       <${Row} icon=${room ? roomType(room.type).emoji : '❔'} label="Room or stage" detail=${room?.name || '—'} />
       ${parts.length < 2 && html`<${Row} icon="quote" iconBg="#8E8E93" label="Category" detail=${category?.name || '—'} />`}
@@ -348,6 +366,7 @@ function QuoteForm({ quote, close }) {
       date: q.date,
       notes: q.notes.trim(),
       fileIds: files.map((f) => f.id),
+      dueDate: q.dueDate || null,
     };
     const undo = await withBusy('Saving…', () => saveQuote(record, { newFiles: files.filter((f) => f.pending).map((f) => f.pending), removedFileIds: removed }));
     if (!undo) return;
@@ -432,6 +451,17 @@ function QuoteForm({ quote, close }) {
           <span class="split-amount readonly"><span>$</span><strong>${centsToInput(rest)}</strong></span>
         </div>
       </div>`}
+    </div>
+
+    <div class="form-group">
+      <div class="field-row">
+        <span class="tool-label"><${Icon} name="calendar" size=${18} /> Payment due <small>Shows on the dashboard, to plan cash flow</small></span>
+        <${Switch} label="Payment due" checked=${!!q.dueDate} onChange=${(on) => set({ dueDate: on ? addDays(todayISO(), 14) : null })} />
+      </div>
+      ${q.dueDate && html`<label class="field">
+        <span class="field-label">Next payment due</span>
+        <input type="date" value=${q.dueDate} onInput=${(e) => set({ dueDate: e.currentTarget.value || null })} />
+      </label>`}
     </div>
 
     <div class="form-group">

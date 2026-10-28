@@ -26,11 +26,15 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   dusk (lamplit windows, porch and gate lamps; gradients in `Defs`). Up to 3 rooms in a row; more go either side of
   a central hallway with low-cut interior walls. It starts closed (roof on, side wall up) with a budget status pill
   top right of the dashboard; tapping it lifts the roof up and back, fades the side wall (`layer: 'shell'`) and
-  shows the room pins. Status overlays (class `st`) only show while it's open.
+  shows the room pins. The roof goes back on by dragging it down (no button; a screen-reader-only one). Status
+  overlays (class `st`) only show while it's open. Closed, the top of the dashboard is just the title, the status
+  pill and the house; its background (`.page.dashboard`) fades from `--statusbar` to evening peach, with no edges.
 - Dashboard numbers come from `js/stats.js` (pure). Budget status: 'none' | 'ok' | 'near' (90%+, or accepted quotes
   would tip it over) | 'over'. Status colours (#0ca30c / #fab219 / #d03b3b) always come with a ✓ / ! / ‼ badge.
 - Charts (`js/ui/charts.js`): spending is #2a78d6, tools #eb6834 (pair validated for colour blindness); one axis only.
-  Lines are smoothed with `smoothPath()` (monotone cubic, never overshoots).
+  The spend line is blurred with `smoothSeries()` (Gaussian, real start and end, never dips) and drawn with
+  `smoothPath()` (monotone cubic, never overshoots); labels and the table show the real numbers. Budget bars are
+  per room: each bar's full length is that room's own budget.
 - Screens that read the store use `useStore()`, which catches up on changes made before it subscribed.
 - Quotes (`js/views/quotes.js`): status 'quoted' | 'accepted' | 'paid' | 'declined'. Payments are ordinary expenses
   with `quoteId`; `quoteProgress()` in `js/stats.js` works out paid / still owed / quoted vs actual. Committed =
@@ -38,6 +42,8 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   the form's `onSaved` hook updates the quote and its undo is folded into the payment's Undo. A quote can cover
   several categories: `parts` [{ categoryId, amountCents }] (first = `categoryId`, which gets the rest; read with
   `quoteParts()`). Payments are split across the parts in proportion (`splitByWeights()`, the form's `shares`).
+  Quotes (and bills, entered the same way) may have a `dueDate` for the next payment; `upcomingPayments()` feeds the
+  dashboard's "Payments coming up" card until the quote is paid or declined.
 - Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
   `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.

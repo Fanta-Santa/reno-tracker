@@ -49,6 +49,18 @@ export function quoteProgress(quote, expenses) {
   };
 }
 
+/**
+ * Payments coming up, soonest first: quotes and bills (not yet paid or declined) with a due date and money still
+ * owed. days: from today to the due date (negative = overdue).
+ */
+export function upcomingPayments(quotes, expenses, today) {
+  return quotes
+    .filter((q) => q.dueDate && (q.status === 'quoted' || q.status === 'accepted'))
+    .map((q) => ({ quote: q, amount: quoteProgress(q, expenses).left, dueDate: q.dueDate, days: daysBetween(today, q.dueDate) }))
+    .filter((u) => u.amount > 0)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || b.amount - a.amount);
+}
+
 /** Totals for the Quotes screen. paidDiff: how far paid quotes came in over (+) or under (-) their quotes. */
 export function quoteTotals(quotes, expenses) {
   const t = { quoted: 0, quotedCount: 0, committed: 0, acceptedCount: 0, paid: 0, paidQuoted: 0, paidCount: 0, paidDiff: 0 };
