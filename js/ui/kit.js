@@ -122,7 +122,7 @@ export function Segmented({ options, value, onChange, small }) {
  * A row of tappable pills. items: [{ value, label, emoji }].
  * With multi, value is an array and taps toggle items.
  */
-export function Chips({ items, value, onChange, multi, wrap, allowNone }) {
+export function Chips({ items, value, onChange, multi, wrap, allowNone, children }) {
   const isOn = (v) => (multi ? (value || []).includes(v) : value === v);
   const tap = (v) => {
     if (multi) onChange(isOn(v) ? value.filter((x) => x !== v) : [...(value || []), v]);
@@ -132,6 +132,7 @@ export function Chips({ items, value, onChange, multi, wrap, allowNone }) {
     ${items.map((it) => html`<button type="button" class="chip ${isOn(it.value) ? 'on' : ''}" onClick=${() => tap(it.value)}>
       ${it.emoji && html`<span class="chip-emoji">${it.emoji}</span>`}${it.label}
     </button>`)}
+    ${children}
   </div>`;
 }
 

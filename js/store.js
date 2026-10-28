@@ -325,6 +325,7 @@ export function blankQuote() {
     amountCents: null, // GST-inclusive
     roomId: null,
     categoryId: null,
+    parts: null, // or [{ categoryId, amountCents }] when it covers several categories (the first is categoryId)
     status: 'quoted', // 'quoted' → 'accepted' → 'paid', or 'declined'
     date: todayISO(), // when the quote came in
     notes: '',
@@ -404,7 +405,7 @@ export function isInUse(kind, id) {
   const field = kind === 'rooms' ? 'roomId' : 'categoryId';
   if (kind === 'stores') return false;
   return state.expenses.some((e) => e.lines.some((l) => l[field] === id))
-    || state.quotes.some((q) => q[field] === id);
+    || state.quotes.some((q) => q[field] === id || (kind === 'categories' && q.parts?.some((pt) => pt.categoryId === id)));
 }
 
 /** Adds or updates a room, category or store. Renaming a store renames it on past expenses too. */

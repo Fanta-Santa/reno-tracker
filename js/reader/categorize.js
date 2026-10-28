@@ -1,6 +1,8 @@
 // Suggests a category for each receipt item, from keywords and from what you've chosen before.
 // Pure functions (no DOM), so they can be unit tested in Node.
 
+import { splitByWeights } from '../format.js';
+
 // Each rule's words are matched as whole words (plurals allowed). Phrases count for more than single words.
 const RULES = {
   tools: {
@@ -58,6 +60,10 @@ const RULES = {
     phrases: ['skip bin', 'bin hire', 'tip fee', 'green waste', 'rubbish removal'],
     words: ['skip', 'rubbish', 'waste', 'disposal', 'dump', 'landfill', 'recycling', 'removal', 'tip'],
   },
+  freight: {
+    phrases: ['delivery fee', 'delivery charge', 'freight charge'],
+    words: ['freight', 'delivery', 'shipping', 'cartage', 'courier', 'postage'],
+  },
   labour: {
     phrases: ['call out', 'service fee', 'electrical work', 'plumbing work', 'labour charge'],
     words: ['labour', 'labor', 'install', 'installation', 'installed', 'callout', 'electrician', 'plumber', 'tiler', 'carpenter',
@@ -75,6 +81,7 @@ const KIND_TO_CATEGORY = {
   hire: /hire|rental/i,
   waste: /waste|disposal|rubbish|skip/i,
   labour: /trade|labou?r|contractor/i,
+  freight: /freight|deliver|shipping|cartage/i, // only if you've added a category like "Freight"
 };
 
 // Some stores mostly sell one kind of thing.
@@ -90,7 +97,7 @@ const STORE_KIND = [
 // Words that often turn up in other kinds of items too, so they count for less.
 const WEAK = new Set(['board', 'sheet', 'post', 'stud', 'light', 'pull', 'rose', 'rail', 'tip', 'plug', 'oil', 'tray', 'blade',
   'cable', 'pipe', 'led', 'handle', 'sand', 'chain', 'rope', 'clip', 'saddle', 'magnet', 'stone', 'batten', 'driver', 'gloves',
-  'removal', 'dump', 'stain', 'tap', 'nut', 'hook', 'matt', 'gloss', 'towel', 'rent']);
+  'removal', 'dump', 'stain', 'tap', 'nut', 'hook', 'matt', 'gloss', 'towel', 'rent', 'delivery']);
 
 function words(text) {
   return ` ${text.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()} `;
@@ -168,4 +175,29 @@ export function suggestCategory(description, { categories, learned = {}, storeNa
     return { categoryId: storeCategoryId, isTool: toolFor(storeCategoryId), confidence: 'low', alternatives, source: 'store' };
   }
   return { categoryId: null, isTool: false, confidence: 'low', alternatives, source: 'none' };
+}
+
+/**
+ * Works out a quote's breakdown by category from the lines read off it, e.g. labour, equipment hire and freight.
+ * The lines may be priced with or without GST; the total is split in proportion. Lines the app isn't sure about go
+ * in the biggest category. Returns [{ categoryId, amountCents }] biggest first, or null if it's all one category
+ * (or the lines don't add up to the total).
+ */
+export function breakdownFromItems(items, totalCents, ctx) {
+  if (!totalCents || items.length < 2) return null;
+  const sum = items.reduce((s, it) => s + it.amountCents, 0);
+  const near = (a, b) => Math.abs(a - b) <= Math.max(2, Math.round(b * 0.01));
+  if (!near(sum, totalCents) && !near(Math.round(sum * 1.1), totalCents)) return null;
+  const groups = new Map();
+  let unsure = 0;
+  for (const it of items) {
+    const s = suggestCategory(it.description, ctx);
+    if (s.categoryId && s.confidence !== 'low') groups.set(s.categoryId, (groups.get(s.categoryId) || 0) + it.amountCents);
+    else unsure += it.amountCents;
+  }
+  if (groups.size < 2) return null;
+  const list = [...groups.entries()].sort((a, b) => b[1] - a[1]);
+  list[0][1] += unsure;
+  const amounts = splitByWeights(totalCents, list.map(([, cents]) => cents));
+  return list.map(([categoryId], i) => ({ categoryId, amountCents: amounts[i] }));
 }

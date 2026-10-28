@@ -4,13 +4,13 @@
 import { html, useEffect, useMemo, useState } from '../lib.js';
 import {
   state, useStore, activeRooms, activeCategories, roomById, categoryById, storeByName, blankExpense, blankQuote,
-  saveQuote, setQuoteStatus, deleteQuote, uid,
+  saveQuote, setQuoteStatus, deleteQuote, saveItem, uid,
 } from '../store.js';
-import { centsToInput, formatDate, formatMoney, parseMoney } from '../format.js';
+import { centsToInput, formatDate, formatMoney, parseMoney, splitByWeights } from '../format.js';
 import { roomType } from '../defaults.js';
-import { quoteProgress, quoteTotals } from '../stats.js';
+import { quoteParts, quoteProgress, quoteTotals } from '../stats.js';
 import { prepareFile } from '../images.js';
-import { suggestCategory } from '../reader/categorize.js';
+import { suggestCategory, breakdownFromItems } from '../reader/categorize.js';
 import { scanFiles, readerEnabled } from '../reader/queue.js';
 import {
   Page, Group, Row, EmptyState, Chips, Segmented, Thumb, SwipeRow, openSheet, SheetHeader, toast, toastUndo,
@@ -20,6 +20,7 @@ import { Icon } from '../ui/icons.js';
 import { navigate, goBack } from '../ui/router.js';
 import { openViewer } from '../ui/viewer.js';
 import { openExpenseForm } from './expense-form.js';
+import { openCategoryEditor } from './editors.js';
 
 const STATUS_LABEL = { quoted: 'Quoted', accepted: 'Accepted', paid: 'Paid', declined: 'Declined' };
 const STATUS_OPTIONS = [
@@ -35,20 +36,27 @@ const quoteTitle = (q) => q.supplier || q.description || 'Quote';
 /**
  * Opens the expense form filled in from the quote. final: this payment finishes the quote (it's marked Paid);
  * otherwise it's a deposit or progress payment (marked Paid automatically once the full amount is covered).
+ * A quote that covers several categories splits each payment across them, in proportion.
  */
 export function openPaymentForm(quote, { final }) {
   const left = quoteProgress(quote, state.expenses).left;
-  const category = categoryById(quote.categoryId);
+  const parts = quoteParts(quote);
+  const shares = parts.map((pt) => pt.amountCents);
+  const totalCents = final ? left || quote.amountCents : null;
+  const amounts = totalCents != null ? splitByWeights(totalCents, shares) : shares.map(() => null);
   const expense = {
     ...blankExpense(),
     store: quote.supplier,
     description: quote.description ? `${quote.description} (${final ? 'final payment' : 'payment'})` : (final ? 'Final payment' : 'Payment'),
-    totalCents: final ? left || quote.amountCents : null,
+    totalCents,
     quoteId: quote.id,
-    lines: [{ id: uid(), roomId: quote.roomId, categoryId: quote.categoryId, amountCents: 0, isTool: !!category?.isTool }],
+    lines: parts.map((pt, i) => ({
+      id: uid(), roomId: quote.roomId, categoryId: pt.categoryId, amountCents: amounts[i], isTool: !!categoryById(pt.categoryId)?.isTool,
+    })),
   };
   openExpenseForm({
     expense,
+    shares: parts.length > 1 ? shares : null,
     title: final ? 'Final payment' : 'Record a payment',
     onSaved: async () => {
       const current = state.quotes.find((q) => q.id === quote.id);
@@ -172,6 +180,7 @@ export function QuoteDetailView({ id }) {
   const p = quoteProgress(quote, state.expenses);
   const room = roomById(quote.roomId);
   const category = categoryById(quote.categoryId);
+  const parts = quoteParts(quote);
   const remove = async () => {
     const undo = await withBusy('Deleting…', () => deleteQuote(quote.id));
     if (!undo) return;
@@ -213,8 +222,11 @@ export function QuoteDetailView({ id }) {
       <${Row} icon="store" iconBg="#FF9500" label="Supplier" detail=${quote.supplier || '—'} />
       ${quote.description && html`<${Row} icon="tag" iconBg="#5856D6" label="For" detail=${quote.description} />`}
       <${Row} icon=${room ? roomType(room.type).emoji : '❔'} label="Room or stage" detail=${room?.name || '—'} />
-      <${Row} icon="quote" iconBg="#8E8E93" label="Category" detail=${category?.name || '—'} />
+      ${parts.length < 2 && html`<${Row} icon="quote" iconBg="#8E8E93" label="Category" detail=${category?.name || '—'} />`}
     <//>
+    ${parts.length > 1 && html`<${Group} title="Breakdown" footer="Payments are split across these in proportion.">
+      ${parts.map((pt) => html`<${Row} key=${pt.categoryId} label=${categoryById(pt.categoryId)?.name || 'Other'} detail=${formatMoney(pt.amountCents)} />`)}
+    <//>`}
     ${quote.notes && html`<${Group} title="Notes"><p class="notes">${quote.notes}</p><//>`}
 
     <div class="form-footer">
@@ -234,12 +246,19 @@ function QuoteForm({ quote, close }) {
   useStore();
   const isNew = !state.quotes.some((q) => q.id === quote.id);
   const rooms = activeRooms();
-  const [q, setQ] = useState(() => ({
-    ...quote,
-    amountText: centsToInput(quote.amountCents),
-    roomId: quote.roomId || rooms.find((r) => r.id === state.prefs.lastRoomId)?.id || rooms[0]?.id || null,
-    categoryId: quote.categoryId || activeCategories().find((c) => /trade|labou?r/i.test(c.name))?.id || null,
-  }));
+  const [q, setQ] = useState(() => {
+    const parts = quote.parts?.length > 1 ? quote.parts : null;
+    const main = quote.categoryId || activeCategories().find((c) => /trade|labou?r/i.test(c.name))?.id;
+    return {
+      ...quote,
+      amountText: centsToInput(quote.amountCents),
+      roomId: quote.roomId || rooms.find((r) => r.id === state.prefs.lastRoomId)?.id || rooms[0]?.id || null,
+      // Several categories when the quote covers more than one (e.g. labour, equipment and freight). The first is
+      // the main one: it gets whatever the others don't.
+      categoryIds: parts ? parts.map((pt) => pt.categoryId) : [main].filter(Boolean),
+      partTexts: parts ? Object.fromEntries(parts.slice(1).map((pt) => [pt.categoryId, centsToInput(pt.amountCents)])) : {},
+    };
+  });
   const [files, setFiles] = useState(quote.fileIds.map((id) => ({ id })));
   const [removed, setRemoved] = useState([]);
   const [reading, setReading] = useState(false);
@@ -253,22 +272,31 @@ function QuoteForm({ quote, close }) {
     return s.confidence !== 'low' ? s.categoryId : null;
   };
 
-  /** Reads an attached quote (on the phone) and fills in anything still blank. */
+  /** Reads an attached quote (on the phone) and fills in anything still blank, including a split by category. */
   const readQuote = async (prepared) => {
     if (!readerEnabled()) return;
     setReading(true);
     try {
       const { result } = await scanFiles(prepared);
       let filled = false;
+      let split = 0;
       setQ((cur) => {
         const patch = {};
         if (!cur.supplier && result.store.value) { patch.supplier = storeByName(result.store.value)?.name || result.store.value; filled = true; }
         if (!parseMoney(cur.amountText) && result.total.cents) { patch.amountText = centsToInput(result.total.cents); filled = true; }
         if (result.date.found && cur.date === quote.date) { patch.date = result.date.value; filled = true; }
         if (!cur.description && result.items.length === 1) { patch.description = result.items[0].description; filled = true; }
+        const parts = cur.categoryIds.length <= 1 && breakdownFromItems(result.items, parseMoney(patch.amountText ?? cur.amountText),
+          { categories: state.categories, learned: state.learned, storeName: patch.supplier ?? cur.supplier });
+        if (parts) {
+          patch.categoryIds = parts.map((pt) => pt.categoryId);
+          patch.partTexts = Object.fromEntries(parts.slice(1).map((pt) => [pt.categoryId, centsToInput(pt.amountCents)]));
+          split = parts.length;
+          filled = true;
+        }
         return { ...cur, ...patch };
       });
-      if (filled) toast('Filled in from the quote. Check the details.', { icon: 'check' });
+      if (filled) toast(`Filled in from the quote${split ? `, split across ${split} categories` : ''}. Check the details.`, { icon: 'check' });
     } catch (err) {
       console.warn('Reading the quote failed', err);
     } finally {
@@ -289,18 +317,34 @@ function QuoteForm({ quote, close }) {
     if (!files.find((f) => f.id === id)?.pending) setRemoved((r) => [...r, id]);
   };
 
+  // The breakdown: amounts typed for the extra categories; the main one gets the rest.
+  const amountCents = parseMoney(q.amountText);
+  const extras = q.categoryIds.slice(1).map((id) => ({ categoryId: id, amountCents: parseMoney(q.partTexts[id] || '') }));
+  const rest = (amountCents ?? 0) - extras.reduce((sum, pt) => sum + (pt.amountCents ?? 0), 0);
+  const setPart = (id, text) => set((cur) => ({ partTexts: { ...cur.partTexts, [id]: text } }));
+  const addCategory = () => openCategoryEditor({
+    category: {},
+    onSave: async (category) => {
+      const record = await withBusy('Saving…', () => saveItem('categories', category));
+      if (record) set((cur) => ({ categoryIds: [...cur.categoryIds, record.id] }));
+    },
+  });
+
   const save = async () => {
-    const amountCents = parseMoney(q.amountText);
     if (!q.supplier.trim()) return toast('Who is the quote from?', { icon: 'alert' });
     if (!amountCents) return toast('Enter the quoted amount.', { icon: 'alert' });
     if (!q.roomId) return toast('Choose a room or stage.', { icon: 'alert' });
+    const blank = extras.find((pt) => !pt.amountCents);
+    if (blank) return toast(`Enter the amount for ${categoryById(blank.categoryId)?.name || 'each category'}, or untap it.`, { icon: 'alert' });
+    if (extras.length && rest <= 0) return toast('The breakdown adds up to more than the quoted amount.', { icon: 'alert' });
     const record = {
       ...quote,
       supplier: q.supplier.trim(),
       description: q.description.trim(),
       amountCents,
       roomId: q.roomId,
-      categoryId: q.categoryId,
+      categoryId: q.categoryIds[0] ?? null,
+      parts: extras.length ? [{ categoryId: q.categoryIds[0], amountCents: rest }, ...extras] : null,
       date: q.date,
       notes: q.notes.trim(),
       fileIds: files.map((f) => f.id),
@@ -312,7 +356,8 @@ function QuoteForm({ quote, close }) {
   };
 
   const roomItems = rooms.map((r) => ({ value: r.id, label: r.name, emoji: roomType(r.type).emoji }));
-  const categoryItems = activeCategories().map((c) => ({ value: c.id, label: c.name }));
+  const categoryItems = state.categories.filter((c) => !c.archived || q.categoryIds.includes(c.id)).map((c) => ({ value: c.id, label: c.name }));
+  const categoryName = (id) => categoryById(id)?.name || 'Other';
 
   return html`<${SheetHeader} title=${isNew ? 'New quote' : 'Edit quote'} onCancel=${close} onDone=${save} doneLabel="Save" />
   <div class="sheet-body form">
@@ -343,7 +388,7 @@ function QuoteForm({ quote, close }) {
         <span class="field-label">From (tradie or supplier)</span>
         <input type="text" placeholder="e.g. Pete's Plumbing" value=${q.supplier} autocomplete="off"
           onInput=${(e) => set({ supplier: e.currentTarget.value })}
-          onBlur=${() => set((cur) => (cur.categoryId ? {} : { categoryId: suggest(cur.description, cur.supplier) || cur.categoryId }))} />
+          onBlur=${() => set((cur) => (cur.categoryIds.length ? {} : { categoryIds: [suggest(cur.description, cur.supplier)].filter(Boolean) }))} />
       </label>
       ${state.stores.length > 0 && html`<div class="field-chips">
         <${Chips} items=${state.stores.map((s) => ({ value: s.name, label: s.name }))}
@@ -354,7 +399,7 @@ function QuoteForm({ quote, close }) {
         <span class="field-label">What for?</span>
         <input type="text" placeholder="e.g. Rough-in and fit-off plumbing" value=${q.description}
           onInput=${(e) => set({ description: e.currentTarget.value })}
-          onBlur=${() => set((cur) => { const c = suggest(cur.description, cur.supplier); return c ? { categoryId: c } : {}; })} />
+          onBlur=${() => set((cur) => { const c = cur.categoryIds.length < 2 && suggest(cur.description, cur.supplier); return c ? { categoryIds: [c] } : {}; })} />
       </label>
       <label class="field">
         <span class="field-label">Date of quote</span>
@@ -368,9 +413,25 @@ function QuoteForm({ quote, close }) {
         <${Chips} wrap items=${roomItems} value=${q.roomId} onChange=${(roomId) => set({ roomId })} />
       </div>
       <div class="field-block">
-        <span class="field-label">Category</span>
-        <${Chips} wrap items=${categoryItems} value=${q.categoryId} onChange=${(categoryId) => set({ categoryId })} />
+        <span class="field-label">Category <small>Covers more than one, like labour and freight? Tap each.</small></span>
+        <${Chips} wrap multi items=${categoryItems} value=${q.categoryIds} onChange=${(categoryIds) => set({ categoryIds })}>
+          <button type="button" class="chip add-chip" onClick=${addCategory}><${Icon} name="plus" size=${14} stroke=${2.4} />New</button>
+        <//>
       </div>
+      ${q.categoryIds.length > 1 && html`<div class="field-block q-parts">
+        <span class="field-label">Breakdown</span>
+        ${extras.map((pt) => html`<label class="q-part" key=${pt.categoryId}>
+          <span class="q-part-name">${categoryName(pt.categoryId)}</span>
+          <span class="split-amount"><span>$</span>
+            <input inputmode="decimal" placeholder="0.00" aria-label=${`${categoryName(pt.categoryId)} amount`} value=${q.partTexts[pt.categoryId] || ''}
+              onInput=${(e) => setPart(pt.categoryId, e.currentTarget.value)}
+              onBlur=${(e) => { const c = parseMoney(e.currentTarget.value); if (c != null) setPart(pt.categoryId, centsToInput(c)); }} /></span>
+        </label>`)}
+        <div class="q-part main ${extras.length && rest <= 0 ? 'neg' : ''}">
+          <span class="q-part-name">${categoryName(q.categoryIds[0])}<small>the rest</small></span>
+          <span class="split-amount readonly"><span>$</span><strong>${centsToInput(rest)}</strong></span>
+        </div>
+      </div>`}
     </div>
 
     <div class="form-group">

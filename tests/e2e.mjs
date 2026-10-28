@@ -302,6 +302,13 @@ try {
     await tap(page.locator('.tab', { hasText: 'Home' }));
     await page.locator('.kpi-big', { hasText: '$456' }).waitFor();
     await page.locator('.sb-item', { hasText: 'Tools' }).locator('strong', { hasText: '$200' }).waitFor();
+    // The house starts with its roof on and the budget status at the top right; tapping it lifts the roof.
+    assert.equal(await page.locator('.house-pin').count(), 0);
+    await page.locator('.nav-actions .status-pill').waitFor();
+    await shot('dashboard-roof-on');
+    await tap(page.locator('.nav-actions .status-pill'));
+    await page.locator('.house.open').waitFor();
+    assert.equal(await page.locator('.nav-actions .status-pill').count(), 0);
     // Tap a room on the house to see its spending, then jump to its expenses.
     await tap(page.getByRole('button', { name: 'Kitchen: On track' }));
     await page.locator('.room-card h3', { hasText: 'Kitchen' }).waitFor();
@@ -316,6 +323,11 @@ try {
     await page.locator('.bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     await page.getByText('2 expenses are missing a receipt').waitFor();
     await shot('dashboard');
+    // Put the roof back on: the rooms close up and the status comes back.
+    if (await page.locator('.room-card h3').count()) await tap(page.locator('.room-card').getByRole('button', { name: 'Close' }));
+    await tap(page.getByRole('button', { name: 'Put the roof back on' }));
+    await page.locator('.house.closed').waitFor();
+    await page.locator('.nav-actions .status-pill').waitFor();
   });
 
   await check('settings lists and rename a store', async () => {
@@ -661,6 +673,39 @@ try {
     await tap(page.getByRole('button', { name: 'Show 1 declined' }));
     await tap(quoteCard('Bright Sparks').getByRole('button', { name: 'Restore' }));
     await page.locator('.group', { hasText: 'Waiting on you' }).locator('.q-card', { hasText: 'Bright Sparks' }).waitFor();
+  });
+
+  await check('a quote can cover several categories, and payments are split across them', async () => {
+    await tap(page.locator('.nav-icon-btn[aria-label="Add a quote"]'));
+    await sheet().locator('#quote-amount').fill('5000');
+    await sheet().getByPlaceholder('e.g. Pete\'s Plumbing').fill('Deck Builders Co');
+    await sheet().getByPlaceholder('e.g. Rough-in and fit-off plumbing').fill('Build the deck');
+    await tap(sheet().locator('.chip', { hasText: 'Deck' }));
+    await tap(sheet().locator('.chip', { hasText: 'Equipment hire' }));
+    // A category that isn't there yet can be added on the spot.
+    await tap(sheet().locator('.chip.add-chip'));
+    await sheet().getByPlaceholder('e.g. Plumbing').fill('Freight');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await sheet().getByLabel('Freight amount').waitFor();
+    await sheet().getByLabel('Equipment hire amount').fill('1200');
+    await sheet().getByLabel('Freight amount').fill('150');
+    await sheet().locator('.q-part.main', { hasText: 'Trades / labour' }).getByText('3650.00').waitFor();
+    await shot('quote-breakdown');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Quote added');
+
+    await tap(quoteCard('Deck Builders Co').locator('.q-main'));
+    const breakdown = page.locator('.group').filter({ has: page.locator('.group-title', { hasText: 'Breakdown' }) });
+    await breakdown.locator('.row', { hasText: 'Freight' }).getByText('$150.00').waitFor();
+    await tap(page.getByRole('tab', { name: 'Accepted' }));
+    await tap(page.getByRole('button', { name: 'Add payment' }));
+    await sheet().locator('#amount').fill('500');
+    const lines = sheet().locator('.split-line input[aria-label="Amount"]');
+    assert.deepEqual(await lines.evaluateAll((els) => els.map((el) => el.value)), ['365.00', '120.00', '15.00']);
+    await shot('payment-split');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Payment saved');
+    await page.locator('.q-pay-row', { hasText: 'Still to pay' }).filter({ hasText: '$4,500.00' }).waitFor();
   });
 
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);

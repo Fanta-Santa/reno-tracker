@@ -5,7 +5,7 @@ import {
   state, useStore, activeRooms, activeCategories, categoryById, storeByName,
   blankExpense, saveExpense, deleteExpense, findDuplicates, gstRate, uid,
 } from '../store.js';
-import { centsToInput, expenseGst, formatDate, formatMoney, parseMoney, splitEvenly } from '../format.js';
+import { centsToInput, expenseGst, formatDate, formatMoney, parseMoney, splitEvenly, splitByWeights } from '../format.js';
 import { roomType } from '../defaults.js';
 import { prepareFile } from '../images.js';
 import {
@@ -63,10 +63,11 @@ function draftFrom(expense, pendingFiles = []) {
  *  - { expense }        edit an existing expense or sort an inbox receipt
  *  - { pendingFiles }   new expense with photos/PDFs already picked
  *  - { draft }          reopen a discarded draft (Undo)
+ * Payments against a quote also pass title, onSaved(record) → undo, and shares: one weight per line, so the
+ * split follows the total as you type it (e.g. a deposit split across the quote's categories).
  */
-export function openExpenseForm({ expense, pendingFiles = [], draft, title, onSaved } = {}) {
-  // title / onSaved(record) → undo: used when recording a payment against a quote.
-  const initial = draft || { ...draftFrom(expense || blankExpense(), pendingFiles), title, onSaved };
+export function openExpenseForm({ expense, pendingFiles = [], draft, title, onSaved, shares } = {}) {
+  const initial = draft || { ...draftFrom(expense || blankExpense(), pendingFiles), title, onSaved, shares };
   openSheet(({ close }) => html`<${ExpenseForm} initial=${initial} close=${close} />`, { full: true, dismissible: false });
 }
 
@@ -116,6 +117,7 @@ function ExpenseForm({ initial, close }) {
   // ----- Field updates -----
 
   const updateLine = (id, patch) => set((cur) => ({
+    shares: 'amountText' in patch ? null : cur.shares, // typing a line's amount takes over from the automatic split
     lines: cur.lines.map((l) => {
       if (l.id !== id) return l;
       const next = { ...l, ...patch };
@@ -123,6 +125,13 @@ function ExpenseForm({ initial, close }) {
       return next;
     }),
   }));
+
+  const setTotal = (amountText) => set((cur) => {
+    const cents = parseMoney(amountText);
+    if (!cur.split || cur.shares?.length !== cur.lines.length || cents == null) return { amountText };
+    const parts = splitByWeights(cents, cur.shares);
+    return { amountText, lines: cur.lines.map((l, i) => ({ ...l, amountText: centsToInput(parts[i]) })) };
+  });
 
   // Picking a store fills in its usual category. Typing one in only fills a blank category.
   const applyStoreCategory = (name, { overwrite }) => set((cur) => {
@@ -289,7 +298,7 @@ function ExpenseForm({ initial, close }) {
       <div class="amount-input">
         <span>$</span>
         <input id="amount" inputmode="decimal" placeholder="0.00" autocomplete="off" value=${d.amountText}
-          onInput=${(e) => set({ amountText: e.currentTarget.value })}
+          onInput=${(e) => setTotal(e.currentTarget.value)}
           onBlur=${() => totalCents != null && set({ amountText: centsToInput(totalCents) })} />
       </div>
       <div class="gst-row">

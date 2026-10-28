@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  parseMoney, formatMoney, centsToInput, gstFromTotal, expenseGst, splitEvenly,
+  parseMoney, formatMoney, centsToInput, gstFromTotal, expenseGst, splitEvenly, splitByWeights,
   formatDate, todayISO, monthLabel, shortDate, daysBetween, addDays,
 } from '../js/format.js';
 import { createZip, readZip, crc32 } from '../js/zip.js';
@@ -50,6 +50,16 @@ test('splitEvenly always adds back up to the total', () => {
   assert.deepEqual(splitEvenly(-1000, 3), [-334, -333, -333]);
   for (const [total, n] of [[1, 4], [9999, 7], [100, 1]]) {
     assert.equal(splitEvenly(total, n).reduce((a, b) => a + b, 0), total);
+  }
+});
+
+test('splitByWeights splits in proportion and always adds back up', () => {
+  assert.deepEqual(splitByWeights(500000, [365000, 120000, 15000]), [365000, 120000, 15000]);
+  assert.deepEqual(splitByWeights(30000, [365000, 120000, 15000]), [21900, 7200, 900]); // a $300 deposit
+  assert.deepEqual(splitByWeights(100, [1, 1, 1]), [34, 33, 33]);
+  assert.deepEqual(splitByWeights(1000, [0, 0]), [500, 500]); // no weights: evenly
+  for (const [total, w] of [[70001, [3, 7, 11]], [1, [5, 5]], [99999, [1, 2, 3, 4]]]) {
+    assert.equal(splitByWeights(total, w).reduce((a, b) => a + b, 0), total);
   }
 });
 

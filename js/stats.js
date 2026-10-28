@@ -24,6 +24,14 @@ export function quoteOutstanding(quote, expenses) {
 }
 
 /**
+ * A quote's categories and amounts. A quote can cover several (e.g. labour, equipment and freight); otherwise
+ * it's the whole amount in its one category. The first part is the main one.
+ */
+export function quoteParts(quote) {
+  return quote.parts?.length > 1 ? quote.parts : [{ categoryId: quote.categoryId ?? null, amountCents: quote.amountCents ?? 0 }];
+}
+
+/**
  * How a quote is going: paid so far (its linked expenses), what's still owed if accepted, and how the
  * actual cost compares with the quote once it's paid.
  */

@@ -379,17 +379,20 @@ small { font-size: 13px; }
   position: fixed; z-index: 80; left: 50%; bottom: calc(var(--safe-bottom) + 90px);
   transform: translateX(-50%); width: min(calc(100% - 32px), 480px);
   display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 18px; min-height: 52px;
-  background: rgba(30, 30, 34, 0.92); color: #fff; border-radius: 18px;
-  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-float); font-size: 15px;
+  /* Frosted glass, like the cards: light and calm rather than a heavy black bar */
+  background: rgba(255, 255, 255, 0.58); color: var(--text); border-radius: 18px;
+  border: 0.5px solid rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: saturate(180%) blur(26px); backdrop-filter: saturate(180%) blur(26px);
+  box-shadow: 0 8px 28px rgba(16, 16, 20, 0.12), 0 1px 3px rgba(16, 16, 20, 0.06); font-size: 15px; font-weight: 500;
   animation: toast-in 0.4s var(--spring) both;
 }
+.toast > .icon { color: var(--text-2); flex: none; }
 /* While a sheet is open, messages drop in from the top so they never cover its buttons or the keyboard. */
 html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animation-name: toast-in-top; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 16px) scale(0.96); } }
 @keyframes toast-in-top { from { opacity: 0; transform: translate(-50%, -16px) scale(0.96); } }
 .toast-msg { flex: 1; }
-.toast-action { color: #64b5ff; font-weight: 700; padding: 6px 10px; border-radius: 10px; white-space: nowrap; }
+.toast-action { color: var(--accent); font-weight: 700; padding: 6px 12px; border-radius: 10px; white-space: nowrap; background: var(--accent-soft); }
 
 .busy { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0, 0, 0, 0.12); }
 .busy-card {
@@ -665,6 +668,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .room-card { scroll-margin-bottom: calc(var(--tabbar-space) + 8px); position: relative; z-index: 2; margin-top: -26px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; animation: card-up 0.45s var(--spring) both; }
 @keyframes card-up { from { opacity: 0; transform: translateY(16px); } }
 .room-card.hint { align-items: center; text-align: center; gap: 10px; color: var(--text-2); font-size: 15px; }
+.room-card.hint .pill-btn { color: var(--accent); }
 .status-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 13px; color: var(--text-2); }
 .status-key > span { display: inline-flex; align-items: center; gap: 6px; }
 .status-key .status-badge, .rc-status .status-badge, .bb-note .status-badge, .alert .status-badge { position: static; border: 0; }
@@ -1027,13 +1031,29 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 .house-scene {
   position: relative; margin: 0 calc(-1 * var(--gutter)); padding: 6px var(--gutter) 14px;
+  /* A calm evening sky: soft peach to lavender, with a warm glow behind the house */
   background:
-    radial-gradient(120% 70% at 50% 18%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%),
-    linear-gradient(180deg, #e3eeff 0%, #eef4ff 55%, rgba(242, 242, 247, 0) 100%);
+    radial-gradient(70% 45% at 52% 52%, rgba(255, 226, 180, 0.55), rgba(255, 226, 180, 0) 70%),
+    linear-gradient(180deg, #f4e6de 0%, #ece4f2 42%, #eef0f8 72%, rgba(242, 242, 247, 0) 100%);
   overflow: hidden;
 }
-.house { position: relative; width: 100%; max-width: 520px; margin: 0 auto; }
+.house { position: relative; width: 100%; max-width: 520px; margin: 0 auto; transition: padding-top 0.75s var(--spring); }
+.house-frame { position: relative; width: 100%; }
 .house-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.house.closed .house-svg { cursor: pointer; }
+.house-part.layer-roof { transition: transform 0.8s var(--spring), opacity 0.3s; }
+.house-part.layer-shell { transition: opacity 0.5s ease; }
+.house.open .layer-shell { opacity: 0; pointer-events: none; }
+.house-svg .st { transition: opacity 0.4s; }
+.house.closed .st { opacity: 0; }
+.house-svg .smoke { opacity: 0; transform-box: fill-box; transform-origin: center; animation: smoke 7.5s ease-out infinite; }
+.house-svg .smoke.s2 { animation-delay: 2.5s; }
+.house-svg .smoke.s3 { animation-delay: 5s; }
+@keyframes smoke {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.5); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-10px, -30px) scale(1.7); }
+}
 .house-float { animation: house-float 6s ease-in-out infinite; }
 @keyframes house-float { 50% { transform: translateY(-5px); } }
 .house-shadow { animation: house-shadow 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
@@ -1062,6 +1082,23 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .house.many .house-pin { width: 29px; height: 29px; font-size: 14px; }
 .house.many .status-badge { min-width: 16px; height: 16px; font-size: 10px; top: -5px; right: -6px; }
 @keyframes pin-in { from { opacity: 0; transform: translate(-50%, -60%) scale(0.6); } }
+.house.open .house-pin { animation-delay: 0.35s; } /* after the roof lifts */
+
+/* Budget at a glance, top right of the dashboard while the roof is on */
+.status-pill {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 13px 6px 9px; border-radius: 18px;
+  background: var(--glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-card), inset 0 0 0 0.5px rgba(255, 255, 255, 0.8);
+  font-size: 14px; font-weight: 700; white-space: nowrap; animation: pill-in 0.4s var(--spring) both;
+}
+.status-pill .status-badge { position: static; border: 0; min-width: 20px; height: 20px; font-size: 12px; }
+.status-pill.s-ok { color: #0b5e0b; }
+.status-pill.s-near { color: #6b4a00; }
+.status-pill.s-over { color: #8c2020; }
+.status-pill.s-none { color: var(--text-2); font-weight: 600; padding-left: 13px; }
+.nav-bar.is-compact .status-pill .sp-text { display: none; }
+.nav-bar.is-compact .status-pill { padding: 6px 8px; }
+@keyframes pill-in { from { opacity: 0; transform: scale(0.85); } }
 .status-badge {
   position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px;
   display: grid; place-items: center; font-size: 11px; font-weight: 800; line-height: 1; color: #fff;
@@ -1156,6 +1193,15 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .hint-text { color: var(--text-2); font-size: 13px; text-align: center; padding: 4px 16px; }
 .reading-note { display: inline-flex; align-items: center; gap: 6px; flex: none; align-self: center; color: var(--text-2); font-size: 13px; }
 .tag.quote { background: var(--accent-soft); color: var(--accent); }
+.chip.add-chip { display: inline-flex; align-items: center; gap: 4px; background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px rgba(0, 122, 255, 0.35); }
+.q-parts { gap: 6px; }
+.q-part { display: flex; align-items: center; gap: 10px; }
+.q-part-name { flex: 1; min-width: 0; font-weight: 600; display: flex; flex-direction: column; }
+.q-part-name small { color: var(--text-2); font-weight: 400; font-size: 13px; }
+.q-part .split-amount { flex: 0 0 150px; }
+.q-part .split-amount.readonly { background: transparent; box-shadow: inset 0 0 0 1px var(--separator); }
+.q-part .split-amount.readonly strong { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.q-part.main.neg strong { color: #d03b3b; }
 .kpi-tile.tappable { text-align: left; transition: transform 0.15s; }
 .kpi-tile.tappable:active { transform: scale(0.97); }
 
