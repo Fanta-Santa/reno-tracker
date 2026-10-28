@@ -7,7 +7,8 @@ import { SheetHost, ToastHost, BusyHost, toast } from './ui/kit.js';
 import { ViewerHost } from './ui/viewer.js';
 import { CameraHost } from './ui/camera.js';
 import { Icon } from './ui/icons.js';
-import { DashboardView, QuotesView } from './views/dashboard.js';
+import { DashboardView } from './views/dashboard.js';
+import { QuotesView, QuoteDetailView } from './views/quotes.js';
 import { ExpensesView, ExpenseDetailView, InboxView } from './views/expenses.js';
 import { SettingsView, ListSettingsView } from './views/settings.js';
 import { SetupView } from './views/setup.js';
@@ -23,7 +24,10 @@ function screenFor(path) {
         ? { tab: 'expenses', view: html`<${ExpenseDetailView} id=${parts[1]} />` }
         : { tab: 'expenses', view: html`<${ExpensesView} />` };
     case 'inbox': return { tab: 'expenses', view: html`<${InboxView} />` };
-    case 'quotes': return { tab: 'quotes', view: html`<${QuotesView} />` };
+    case 'quotes':
+      return parts[1]
+        ? { tab: 'quotes', view: html`<${QuoteDetailView} id=${parts[1]} />` }
+        : { tab: 'quotes', view: html`<${QuotesView} />` };
     case 'settings':
       return ['rooms', 'categories', 'stores'].includes(parts[1])
         ? { tab: 'settings', view: html`<${ListSettingsView} kind=${parts[1]} />` }
@@ -43,7 +47,7 @@ function TabBar({ tab }) {
   return html`<nav class="tab-bar" aria-label="Main">
     ${item('home', '/', 'house', 'Home')}
     ${item('expenses', '/expenses', 'list', 'Expenses', inbox)}
-    <button class="tab-add" onClick=${openAddMenu} aria-label="Add expense"><${Icon} name="plus" size=${28} stroke=${2.4} /></button>
+    <button class="tab-add" onClick=${openAddMenu} aria-label="Add expense or quote"><${Icon} name="plus" size=${28} stroke=${2.4} /></button>
     ${item('quotes', '/quotes', 'quote', 'Quotes')}
     ${item('settings', '/settings', 'gear', 'Settings')}
   </nav>`;

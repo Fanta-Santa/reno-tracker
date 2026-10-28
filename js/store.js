@@ -16,7 +16,7 @@ export const state = {
   categories: [], // { id, name, isTool, order, archived }
   stores: [], // { id, name, defaultCategoryId, order }
   expenses: [], // see blankExpense()
-  quotes: [], // Stage 3
+  quotes: [], // see blankQuote()
 };
 
 const listeners = new Set();
@@ -65,7 +65,7 @@ export async function loadAll() {
   state.categories = categories.sort(byOrder);
   state.stores = stores.sort(byOrder);
   state.expenses = expenses.sort(byNewest);
-  state.quotes = quotes;
+  state.quotes = quotes.sort(byQuoteDate);
   state.loaded = true;
   changed();
 }
@@ -310,6 +310,89 @@ export async function addToInbox(pendingFiles) {
     ]);
     const ids = new Set(records.map((r) => r.id));
     state.expenses = state.expenses.filter((e) => !ids.has(e.id));
+    changed();
+  };
+}
+
+// ---------- Quotes ----------
+
+export function blankQuote() {
+  const now = Date.now();
+  return {
+    id: uid(),
+    supplier: '',
+    description: '',
+    amountCents: null, // GST-inclusive
+    roomId: null,
+    categoryId: null,
+    status: 'quoted', // 'quoted' → 'accepted' → 'paid', or 'declined'
+    date: todayISO(), // when the quote came in
+    notes: '',
+    fileIds: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+const byQuoteDate = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0);
+
+function putQuoteInState(record) {
+  state.quotes = [...state.quotes.filter((q) => q.id !== record.id), record].sort(byQuoteDate);
+}
+
+/** Saves a quote (new or changed) with any attached files. Returns an undo function. */
+export async function saveQuote(quote, { newFiles = [], removedFileIds = [] } = {}) {
+  const previous = state.quotes.find((q) => q.id === quote.id) || null;
+  const removedFiles = (await Promise.all(removedFileIds.map((id) => db.get('files', id)))).filter(Boolean);
+  const record = { ...quote, updatedAt: Date.now() };
+  if (record.status === 'accepted' && previous?.status !== 'accepted') record.acceptedAt = Date.now();
+  await db.write([
+    ...newFiles.map((f) => ({ store: 'files', put: fileRecord(f) })),
+    ...removedFileIds.map((id) => ({ store: 'files', delete: id })),
+    { store: 'quotes', put: record },
+  ]);
+  putQuoteInState(record);
+  changed();
+  return async () => {
+    await db.write([
+      ...newFiles.map((f) => ({ store: 'files', delete: f.id })),
+      ...removedFiles.map((put) => ({ store: 'files', put })),
+      previous ? { store: 'quotes', put: previous } : { store: 'quotes', delete: record.id },
+    ]);
+    if (previous) putQuoteInState(previous);
+    else state.quotes = state.quotes.filter((q) => q.id !== record.id);
+    changed();
+  };
+}
+
+/** Changes a quote's status (quoted / accepted / paid / declined). Returns an undo function. */
+export function setQuoteStatus(id, status) {
+  const quote = state.quotes.find((q) => q.id === id);
+  return saveQuote({ ...quote, status });
+}
+
+/** Deletes a quote and its files. Payments already made stay as expenses. Returns an undo function. */
+export async function deleteQuote(id) {
+  const record = state.quotes.find((q) => q.id === id);
+  if (!record) return async () => {};
+  const files = (await Promise.all(record.fileIds.map((fid) => db.get('files', fid)))).filter(Boolean);
+  const linked = state.expenses.filter((e) => e.quoteId === id);
+  await db.write([
+    { store: 'quotes', delete: id },
+    ...record.fileIds.map((fid) => ({ store: 'files', delete: fid })),
+    ...linked.map((e) => ({ store: 'expenses', put: { ...e, quoteId: null } })),
+  ]);
+  state.quotes = state.quotes.filter((q) => q.id !== id);
+  for (const e of linked) putExpenseInState({ ...e, quoteId: null });
+  changed();
+  return async () => {
+    await db.write([
+      { store: 'quotes', put: record },
+      ...files.map((put) => ({ store: 'files', put })),
+      ...linked.map((put) => ({ store: 'expenses', put })),
+    ]);
+    putQuoteInState(record);
+    for (const e of linked) putExpenseInState(e);
     changed();
   };
 }

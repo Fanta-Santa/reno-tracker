@@ -24,6 +24,36 @@ export function quoteOutstanding(quote, expenses) {
 }
 
 /**
+ * How a quote is going: paid so far (its linked expenses), what's still owed if accepted, and how the
+ * actual cost compares with the quote once it's paid.
+ */
+export function quoteProgress(quote, expenses) {
+  const payments = expenses.filter((e) => e.quoteId === quote.id && e.status !== 'inbox');
+  const paid = payments.reduce((s, e) => s + (e.totalCents ?? 0), 0);
+  const amount = quote.amountCents ?? 0;
+  return {
+    paid,
+    payments,
+    outstanding: quote.status === 'accepted' ? Math.max(0, amount - paid) : 0,
+    left: Math.max(0, amount - paid),
+    diff: quote.status === 'paid' ? paid - amount : null, // + over the quote, - under
+    pct: amount ? paid / amount : 0,
+  };
+}
+
+/** Totals for the Quotes screen. paidDiff: how far paid quotes came in over (+) or under (-) their quotes. */
+export function quoteTotals(quotes, expenses) {
+  const t = { quoted: 0, quotedCount: 0, committed: 0, acceptedCount: 0, paid: 0, paidQuoted: 0, paidCount: 0, paidDiff: 0 };
+  for (const q of quotes) {
+    const p = quoteProgress(q, expenses);
+    if (q.status === 'quoted') { t.quoted += q.amountCents ?? 0; t.quotedCount += 1; }
+    if (q.status === 'accepted') { t.committed += p.outstanding; t.acceptedCount += 1; t.paid += p.paid; }
+    if (q.status === 'paid') { t.paid += p.paid; t.paidQuoted += q.amountCents ?? 0; t.paidCount += 1; t.paidDiff += p.diff; }
+  }
+  return t;
+}
+
+/**
  * All the dashboard numbers.
  * data: { rooms, categories, expenses, quotes }. Inbox receipts (not yet sorted) aren't counted.
  */

@@ -1,7 +1,7 @@
 // Checks the dashboard numbers. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStatus, computeStats, quoteOutstanding, spendOverTime } from '../js/stats.js';
+import { budgetStatus, computeStats, quoteOutstanding, quoteProgress, quoteTotals, spendOverTime } from '../js/stats.js';
 import { smoothPath } from '../js/ui/charts.js';
 
 const rooms = [
@@ -94,4 +94,24 @@ test('the spend line is smooth but never overshoots a running total', () => {
   for (const yv of ys) assert.ok(yv >= 0 && yv <= 100, `control point ${yv} overshoots`);
   // Flat stretches stay flat.
   assert.match(d, /C3\.3,100\.0 6\.7,100\.0 10\.0,100\.0/);
+});
+
+test('quote progress: paid so far, still owed, and quoted vs actual', () => {
+  const pay = (id, quoteId, cents, status = 'filed') => ({ id, quoteId, status, totalCents: cents, lines: [] });
+  const ex = [pay('a', 'q1', 30000), pay('b', 'q1', 20000), pay('c', 'q2', 105000), pay('d', 'q2', 99999, 'inbox')];
+  const accepted = { id: 'q1', status: 'accepted', amountCents: 80000 };
+  const paid = { id: 'q2', status: 'paid', amountCents: 100000 };
+  const quoted = { id: 'q3', status: 'quoted', amountCents: 40000 };
+  assert.deepEqual(
+    (({ paid: p, outstanding, left, diff }) => ({ p, outstanding, left, diff }))(quoteProgress(accepted, ex)),
+    { p: 50000, outstanding: 30000, left: 30000, diff: null },
+  );
+  const done = quoteProgress(paid, ex);
+  assert.equal(done.paid, 105000); // the unsorted inbox receipt doesn't count
+  assert.equal(done.diff, 5000); // $50 over the quote
+  assert.equal(done.outstanding, 0);
+  assert.equal(quoteProgress(quoted, ex).outstanding, 0);
+  const t = quoteTotals([accepted, paid, quoted, { id: 'q4', status: 'declined', amountCents: 999 }], ex);
+  assert.deepEqual([t.quoted, t.quotedCount, t.committed, t.acceptedCount, t.paidCount, t.paidQuoted, t.paidDiff],
+    [40000, 1, 30000, 1, 1, 100000, 5000]);
 });
