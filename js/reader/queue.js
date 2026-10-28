@@ -45,6 +45,7 @@ export function useReadingId() {
   const [id, setId] = useState(current);
   useEffect(() => {
     watchers.add(setId);
+    setId(current); // catch up if it changed before we started listening
     return () => watchers.delete(setId);
   }, []);
   return id;

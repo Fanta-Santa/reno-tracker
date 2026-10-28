@@ -300,8 +300,20 @@ try {
 
   await check('dashboard totals', async () => {
     await tap(page.locator('.tab', { hasText: 'Home' }));
-    await page.locator('.hero-amount', { hasText: '$456.00' }).waitFor();
-    await page.locator('.tile', { hasText: 'Tools' }).locator('strong', { hasText: '$200' }).waitFor();
+    await page.locator('.kpi-big', { hasText: '$456' }).waitFor();
+    await page.locator('.sb-item', { hasText: 'Tools' }).locator('strong', { hasText: '$200' }).waitFor();
+    // Tap a room on the house to see its spending, then jump to its expenses.
+    await tap(page.getByRole('button', { name: 'Kitchen: On track' }));
+    await page.locator('.room-card h3', { hasText: 'Kitchen' }).waitFor();
+    await page.locator('.rc-numbers', { hasText: '$205' }).getByText('$500').waitFor();
+    await shot('dashboard-room');
+    await tap(page.locator('.room-card').getByRole('button', { name: 'See all 2 expenses' }));
+    await page.locator('.chip.removable', { hasText: 'Kitchen' }).waitFor();
+    assert.equal(await page.locator('.expense-row').count(), 2);
+    await tap(page.locator('.chip.removable', { hasText: 'Kitchen' }));
+    await tap(page.locator('.tab', { hasText: 'Home' }));
+    // Budget bars: the kitchen's budget is $500.
+    await page.locator('.bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     await page.getByText('2 expenses are missing a receipt').waitFor();
     await shot('dashboard');
   });
@@ -343,7 +355,7 @@ try {
     await chooser.setFiles(backupPath);
     await p2.getByText('Restore “Test Reno”?').waitFor();
     await p2.locator('.action-btn', { hasText: 'Restore' }).click();
-    await p2.locator('.hero-amount', { hasText: '$456.00' }).waitFor();
+    await p2.locator('.kpi-big', { hasText: '$456' }).waitFor();
     await p2.locator('.tab', { hasText: 'Expenses' }).click();
     await p2.locator('.expense-row').nth(3).waitFor();
     assert.equal(await p2.locator('.expense-row').count(), 4);
@@ -482,7 +494,7 @@ try {
     await tap(sheet().getByRole('button', { name: 'Save expense' }));
     await expectToast('Expense saved');
     await tap(page.locator('.tab', { hasText: 'Home' }));
-    await page.locator('.tile', { hasText: 'Tools' }).locator('strong', { hasText: '$211' }).waitFor(); // drill $59 + laser $119 + tape $32.95
+    await page.locator('.sb-item', { hasText: 'Tools' }).locator('strong', { hasText: '$211' }).waitFor(); // drill $59 + laser $119 + tape $32.95
     await shot('dashboard-reader');
   });
 

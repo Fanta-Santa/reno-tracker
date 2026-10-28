@@ -20,6 +20,7 @@ export const state = {
 };
 
 const listeners = new Set();
+let version = 0; // goes up on every change
 
 export function subscribe(fn) {
   listeners.add(fn);
@@ -27,13 +28,20 @@ export function subscribe(fn) {
 }
 
 function changed() {
+  version += 1;
   for (const fn of listeners) fn();
 }
 
 /** Hook: re-renders the calling screen whenever the data changes. */
 export function useStore() {
   const [, setTick] = useState(0);
-  useEffect(() => subscribe(() => setTick((n) => n + 1)), []);
+  const seen = version;
+  useEffect(() => {
+    const unsubscribe = subscribe(() => setTick((n) => n + 1));
+    // The data may have changed between drawing and starting to listen (e.g. it finished loading): catch up.
+    if (version !== seen) setTick((n) => n + 1);
+    return unsubscribe;
+  }, []);
   return state;
 }
 
