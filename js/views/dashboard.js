@@ -1,5 +1,6 @@
-// Dashboard: the house (tap a room to see its spending), budget warnings, the headline numbers,
-// to-dos, and charts by room, by category, tools vs the rest, and over time.
+// Dashboard: the house (closed up with a budget status at the top; tap it to look inside and tap a room to see its
+// spending), budget warnings, the headline numbers, to-dos, and charts by room, by category, tools vs the rest,
+// and over time.
 
 import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
 import { state, useStore, inboxExpenses, saveItem } from '../store.js';
@@ -17,23 +18,48 @@ import { openAddMenu } from './capture.js';
 import { runBackup } from './settings.js';
 
 let remembered = null; // the selected room, kept while the app is open
+let rememberedOpen = false; // the house starts with its roof on
 
 function Meter({ value, max, status }) {
   const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return html`<span class="meter ${status || ''}"><span style=${`width:${width}%`} /></span>`;
 }
 
-/** The glass card under the house: the tapped room's spending, or a hint and the status key. */
-function RoomCard({ row, onClose }) {
+/** Budget at a glance (top right while the roof is on): over budget, at risk, on track, or no budgets yet. */
+function StatusPill({ stats, onTap }) {
+  const over = stats.overBudget.length;
+  const near = stats.nearBudget.length;
+  const status = over || stats.status === 'over' ? 'over' : near || stats.status === 'near' ? 'near' : stats.budget ? 'ok' : 'none';
+  const text = {
+    over: over ? `${over} over budget` : 'Over budget',
+    near: near ? `${near} at risk` : 'At risk',
+    ok: 'On track',
+    none: 'No budgets yet',
+  }[status];
+  const more = status === 'over' && near ? `, ${near} more at risk` : '';
+  return html`<button class="status-pill s-${status}" onClick=${onTap} aria-label=${`Budget: ${text}${more}. Look inside the house.`}>
+    <${StatusBadge} status=${status} inline /><span class="sp-text">${text}</span>
+  </button>`;
+}
+
+/** The glass card under the house: the tapped room's spending, or a hint (and the status key once it's open). */
+function RoomCard({ row, onClose, open, onRoof }) {
   const ref = useRef();
   const id = row?.room.id;
   useEffect(() => { if (id) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [id]);
+  if (!row && !open) {
+    return html`<div class="glass-card room-card hint">
+      <p>Tap the house to look inside each room.</p>
+      <button class="pill-btn" onClick=${onRoof}><${Icon} name="house" size=${16} /> Look inside</button>
+    </div>`;
+  }
   if (!row) {
     return html`<div class="glass-card room-card hint">
       <p>Tap a room to see what you’ve spent there.</p>
       <div class="status-key" aria-label="What the badges mean">
         ${['ok', 'near', 'over'].map((s) => html`<span><${StatusBadge} status=${s} />${STATUS_TEXT[s]}</span>`)}
       </div>
+      <button class="pill-btn" onClick=${onRoof}><${Icon} name="house" size=${16} /> Put the roof back on</button>
     </div>`;
   }
   const { room, spent, budget, committed, status, count, byCategory } = row;
@@ -78,9 +104,20 @@ function RoomCard({ row, onClose }) {
 export function DashboardView() {
   useStore();
   const [selected, setSelected] = useState(remembered);
+  const [open, setOpen] = useState(rememberedOpen || !!remembered);
   const select = (id) => {
     remembered = id;
     setSelected(id);
+    if (id) setRoof(true);
+  };
+  /** Lifts the roof off (true) or puts it back on (false). */
+  const setRoof = (next) => {
+    rememberedOpen = next;
+    setOpen(next);
+    if (!next) {
+      remembered = null;
+      setSelected(null);
+    }
   };
   const stats = useMemo(() => computeStats(state), [state.rooms, state.categories, state.expenses, state.quotes]);
   const series = useMemo(() => spendOverTime(state.expenses, todayISO()), [state.expenses]);
@@ -108,7 +145,8 @@ export function DashboardView() {
   const categoryRows = stats.categories.filter((c) => c.cents > 0).map((c) => ({ id: c.category?.id, label: c.category?.name || 'Other', value: c.cents }));
   const totalOver = stats.budget > 0 && stats.spent + stats.committed > stats.budget;
 
-  return html`<${Page} title=${state.project.name} class="dashboard">
+  return html`<${Page} title=${state.project.name} class="dashboard"
+    actions=${!open && (filed.length > 0 || stats.budget > 0) && html`<${StatusPill} stats=${stats} onTap=${() => setRoof(true)} />`}>
     <section class="house-scene" aria-label="House">
       ${stages.length > 0 && html`<div class="stage-chips" aria-label="Whole-house stages">
         ${stages.map((r) => html`<button class="stage-chip ${selected === r.id ? 'on' : ''}" onClick=${() => select(selected === r.id ? null : r.id)}
@@ -116,8 +154,9 @@ export function DashboardView() {
           <span aria-hidden="true">${roomType(r.type).emoji}</span>${r.name}<${StatusBadge} status=${statsByRoom.get(r.id)?.status || 'none'} />
         </button>`)}
       </div>`}
-      <${House} rooms=${activeRooms} stats=${statsByRoom} selectedId=${selected} onSelect=${select} />
-      <${RoomCard} row=${selectedRow} onClose=${() => select(null)} />
+      <${House} rooms=${activeRooms} stats=${statsByRoom} open=${open} onOpen=${(id) => (id ? select(id) : setRoof(true))}
+        selectedId=${selected} onSelect=${select} />
+      <${RoomCard} row=${selectedRow} onClose=${() => select(null)} open=${open} onRoof=${() => setRoof(!open)} />
     </section>
 
     ${(stats.overBudget.length > 0 || stats.nearBudget.length > 0 || totalOver) && html`<div class="alerts" role="status">

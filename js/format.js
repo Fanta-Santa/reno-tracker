@@ -61,6 +61,22 @@ export function splitEvenly(totalCents, n) {
   return Array.from({ length: n }, (_, i) => sign * (base + (i < extra ? 1 : 0)));
 }
 
+/**
+ * Splits cents in proportion to weights, e.g. a payment across a quote's categories. The parts always add up
+ * exactly (leftover cents go to the parts that lost the most to rounding).
+ */
+export function splitByWeights(totalCents, weights) {
+  const w = weights.map((x) => Math.max(0, x || 0));
+  const sum = w.reduce((a, b) => a + b, 0);
+  if (!sum) return splitEvenly(totalCents, weights.length);
+  const raw = w.map((x) => (totalCents * x) / sum);
+  const out = raw.map(Math.floor);
+  let left = totalCents - out.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, i) => [r - Math.floor(r), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; left > 0; k = (k + 1) % order.length, left -= 1) out[order[k][1]] += 1;
+  return out;
+}
+
 function pad(n) {
   return String(n).padStart(2, '0');
 }

@@ -1,7 +1,7 @@
 // Checks the dashboard numbers. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStatus, computeStats, quoteOutstanding, quoteProgress, quoteTotals, spendOverTime } from '../js/stats.js';
+import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime } from '../js/stats.js';
 import { smoothPath } from '../js/ui/charts.js';
 
 const rooms = [
@@ -114,4 +114,11 @@ test('quote progress: paid so far, still owed, and quoted vs actual', () => {
   const t = quoteTotals([accepted, paid, quoted, { id: 'q4', status: 'declined', amountCents: 999 }], ex);
   assert.deepEqual([t.quoted, t.quotedCount, t.committed, t.acceptedCount, t.paidCount, t.paidQuoted, t.paidDiff],
     [40000, 1, 30000, 1, 1, 100000, 5000]);
+});
+
+test('quote parts: a breakdown by category, or the whole amount in one', () => {
+  assert.deepEqual(quoteParts({ categoryId: 'l', amountCents: 50000 }), [{ categoryId: 'l', amountCents: 50000 }]);
+  const parts = [{ categoryId: 'l', amountCents: 36500 }, { categoryId: 'h', amountCents: 12000 }, { categoryId: 'f', amountCents: 1500 }];
+  assert.deepEqual(quoteParts({ categoryId: 'l', amountCents: 50000, parts }), parts);
+  assert.deepEqual(quoteParts({ categoryId: 'l', amountCents: 50000, parts: [parts[0]] }), [{ categoryId: 'l', amountCents: 50000 }]);
 });

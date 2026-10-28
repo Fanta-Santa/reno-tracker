@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseReceipt, findAmounts, normaliseLine, tidyDescription } from '../js/reader/parse.js';
-import { suggestCategory, itemKey, scoreKinds } from '../js/reader/categorize.js';
+import { suggestCategory, itemKey, scoreKinds, breakdownFromItems } from '../js/reader/categorize.js';
 import { DEFAULT_CATEGORIES } from '../js/defaults.js';
 
 const lines = (text, confidence = 92) => text.trim().split('\n').map((t) => ({ text: t.replace(/^\s*\d+ \| /, ''), confidence }));
@@ -203,6 +203,26 @@ test('what you chose before wins, with high confidence', () => {
   assert.equal(s.categoryId, id('Other'));
   assert.equal(s.confidence, 'high');
   assert.equal(itemKey('Buildex Screw Batten 14G x 75 50PK'), 'buildex screw batten');
+});
+
+test('a quote covering labour, hire and freight is split by category', () => {
+  const categories = [...CATS, { id: 'f', name: 'Freight' }];
+  const item = (description, amountCents) => ({ description, amountCents });
+  // Priced without GST; the quote's total includes it.
+  const items = [item('Labour - install vanity and tapware 8 hrs', 300000), item('Equipment hire - core drill 1 day', 90000),
+    item('Freight', 10000)];
+  assert.deepEqual(breakdownFromItems(items, 440000, { categories }), [
+    { categoryId: id('Trades / labour'), amountCents: 330000 },
+    { categoryId: id('Equipment hire'), amountCents: 99000 },
+    { categoryId: 'f', amountCents: 11000 },
+  ]);
+  // Unsure lines go in with the biggest; all one category, or lines that don't add up, give nothing.
+  const withUnsure = [...items.slice(0, 2), item('Sundries', 10000)];
+  assert.equal(breakdownFromItems(withUnsure, 400000, { categories })[0].amountCents, 310000);
+  assert.equal(breakdownFromItems([item('Labour 4 hrs', 40000), item('Labour call out fee', 10000)], 50000, { categories }), null);
+  assert.equal(breakdownFromItems(items, 999900, { categories }), null);
+  // Without a freight category, "Freight" is just unsure.
+  assert.equal(breakdownFromItems(items, 440000, { categories: CATS }).length, 2);
 });
 
 test('renamed categories still match by name', () => {

@@ -37,9 +37,12 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 ## Dashboard (Stage 2)
 
 - An illustrated early-1900s Australian cottage on a floating island, built from your rooms: always single-storey,
-  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a red
-  corrugated-iron bullnose verandah (your deck/outdoor area) and a floating hipped roof (your roof/exterior work),
-  plus a garage shed, garden, Hills Hoist and picket fence. Whole-house stages (like Painting) float above as tags.
+  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a navy
+  corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah (your deck/outdoor area), plus a garage
+  shed, garden, Hills Hoist and picket fence, softly lit at dusk by lamplit windows and porch and gate lamps.
+  Whole-house stages (like Painting) float above as tags.
+- It starts closed up with the roof on, and a status at the top right shows the budget at a glance: ✓ on track,
+  ! at risk, or ‼ over budget. Tap the house (or the status) and the roof lifts off to show every room.
 - Every room shows its budget status with a badge: ✓ on track, ! nearly at budget (90%+), ‼ over budget.
   Tap a room to lift it and see what's been spent there, its top categories and recent receipts.
 - Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),
@@ -56,6 +59,9 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   what's left to pay. Each payment is a normal expense, tagged "Quote" and linked back to its quote.
 - Quoted vs actual: paid quotes show ▲ over or ▼ under the quote, in dollars and %.
 - Undo takes back a payment and the status change it caused, together.
+- A quote can cover several categories (e.g. labour, equipment hire and freight): tap each one and type the amounts
+  for the extras; the first one gets the rest. Add a missing category (like Freight) right there with ＋ New.
+  Attached quotes with priced lines are split automatically. Payments are split across the categories in proportion.
 
 Coming next: CSV/Excel export, backup reminders, and the install guide for friends.
 
