@@ -34,7 +34,17 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   the iPhone camera if it can't start. Switch it off in Settings → Receipt reading.
 - It can be switched off in Settings → Receipt reading.
 
-Coming next: the interactive house dashboard with charts and budget warnings, quotes, CSV/Excel export, and the install guide for friends.
+## Dashboard (Stage 2)
+
+- An illustrated house on a floating island, built from your rooms: kitchen, bathroom, bedroom, living, laundry
+  and other rooms become open-fronted rooms on one or more floors; a garage, deck and garden sit beside them; the
+  roof is your roof/exterior work. Whole-house stages (like Painting) float above as tags.
+- Every room shows its budget status with a badge: ✓ on track, ! nearly at budget (90%+), ‼ over budget.
+  Tap a room to lift it and see what's been spent there, its top categories and recent receipts.
+- Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),
+  and charts: budget by room, tools vs everything else, spending by category, and spend over time.
+
+Coming next: quotes (quoted → accepted → paid), CSV/Excel export, and the install guide for friends.
 
 ## How it's built
 
@@ -46,6 +56,7 @@ Plain HTML, CSS and JavaScript with no build step. Opening `index.html` through 
 | `js/main.js` | Starts the app, picks the screen, draws the tab bar |
 | `js/store.js`, `js/db.js` | Your data, saved in the phone's built-in database (IndexedDB) |
 | `js/format.js` | Money (whole cents), GST and dd/mm/yyyy dates |
+| `js/stats.js` | Dashboard numbers: budget status, by room, by category, spend over time |
 | `js/images.js` | Shrinks photos and makes thumbnails; reads PDFs |
 | `js/backup.js`, `js/zip.js` | Backup and restore as one .zip file |
 | `js/ui/` | Shared pieces: sheets, Undo bar, switches, receipt viewer |
@@ -63,6 +74,6 @@ node tests/serve.mjs        # then open http://localhost:8080
 ## Tests
 
 ```sh
-node --test tests/unit.test.mjs tests/reader.test.mjs   # money, GST, dates, backup, receipt reading (no browser)
+node --test tests/unit.test.mjs tests/reader.test.mjs tests/stats.test.mjs   # no browser needed
 node tests/e2e.mjs                # clicks through the whole app in a phone-sized browser (needs Playwright)
 ```
