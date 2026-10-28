@@ -27,6 +27,11 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   sure of: the details (one tap if right), the room, any unclear items, and a final summary.
 - Quick-snapped receipts are read in the background, so the inbox is ready to check.
 - The app remembers the categories you pick for items and suggests them next time.
+- Anything not matched to an item is saved as "Other items", with the receipt lines it probably covers listed
+  underneath (on the summary card, the expense and the edit form). Tap + on a line to make it its own item.
+- The app's own camera opens with the iPhone's light on (web apps can't switch on the flash in the iPhone's
+  built-in camera, but they can use the light). It can take several receipts in a row for Quick snap, and offers
+  the iPhone camera if it can't start. Switch it off in Settings → Receipt reading.
 - It can be switched off in Settings → Receipt reading.
 
 Coming next: the interactive house dashboard with charts and budget warnings, quotes, CSV/Excel export, and the install guide for friends.

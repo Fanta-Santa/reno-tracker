@@ -92,9 +92,19 @@ function buildReview({ expense, pendingFiles = [], scan }) {
     items,
     wholeCategoryId,
     wholeIsTool: !!categoryById(wholeCategoryId)?.isTool,
+    // Receipt lines that didn't become items, to match up by hand on the summary card.
+    unmatched: (r?.unmatched || []).map((u, i) => ({ ...u, id: `u${i}`, used: false })),
+    otherCategoryId: null, // category for the "Other items" remainder, if you change it
     receiptText: r?.text || '',
   };
 }
+
+/** Category for the unmatched remainder: your choice, else the receipt's main category. */
+function otherCategory(rv) {
+  return rv.otherCategoryId || (rv.items.length ? mostCommonCategory(rv.items) : rv.wholeCategoryId || mostCommonCategory([]));
+}
+
+const receiptFiles = (rv) => (rv.pendingFiles.length ? rv.pendingFiles : rv.expense.fileIds);
 
 function cardsFor(rv) {
   const cards = [{ type: 'details' }];
@@ -480,7 +490,7 @@ function itemsTotal(rv) {
 }
 
 function SummaryRow({ it, rv, setItem, onRemove }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!it.startOpen);
   const cat = categoryById(it.categoryId);
   const room = roomById(it.roomId || rv.roomId);
   const amount = parseMoney(it.amountText);
@@ -496,7 +506,7 @@ function SummaryRow({ it, rv, setItem, onRemove }) {
       <input value=${it.description} aria-label="Item" onInput=${(e) => setItem(it.id, { description: e.currentTarget.value })} />
       <div class="split-selects">
         <span class="fc-money small"><span>$</span><input inputmode="decimal" value=${it.amountText} aria-label="Amount"
-          onInput=${(e) => setItem(it.id, { amountText: e.currentTarget.value })} /></span>
+          placeholder=${it.amountHint || '0.00'} onInput=${(e) => setItem(it.id, { amountText: e.currentTarget.value })} /></span>
         <select value=${it.categoryId || ''} aria-label="Category"
           onChange=${(e) => setItem(it.id, { categoryId: e.currentTarget.value, isTool: !!categoryById(e.currentTarget.value)?.isTool })}>
           <option value="" disabled>Category…</option>
@@ -515,6 +525,41 @@ function SummaryRow({ it, rv, setItem, onRemove }) {
   </div>`;
 }
 
+/**
+ * What's left after the items: the amount not matched to an item, and the receipt lines the reader
+ * couldn't turn into items. Tap + on a line to make it its own item.
+ */
+function OtherItems({ rv, set, remainder, hasItems, onAdd }) {
+  const left = rv.unmatched.filter((u) => !u.used);
+  const files = receiptFiles(rv);
+  return html`<div class="other-panel">
+    ${hasItems ? html`<div class="other-head">
+      <span class="sum-text"><span class="sum-desc">Other items on the receipt</span>
+        <small>${left.length ? `${left.length} ${left.length === 1 ? 'line' : 'lines'} not matched to a price yet` : 'Not matched to an item'}</small></span>
+      <strong>${formatMoney(remainder)}</strong>
+    </div>` : html`<div class="other-head">
+      <span class="sum-text"><span class="sum-desc">Lines on the receipt</span>
+        <small>Tap + to split the receipt into items</small></span>
+    </div>`}
+    ${left.length > 0 && html`<ul class="unmatched-list">
+      ${left.map((u) => html`<li key=${u.id}>
+        <span class="receipt-text">${u.text}</span>
+        <button class="add-line" onClick=${() => onAdd(u)} aria-label=${`Add ${u.label || u.text} as an item`}>
+          <${Icon} name="plus" size=${16} stroke=${2.6} /></button>
+      </li>`)}
+    </ul>`}
+    ${hasItems && !left.length && html`<p class="other-hint">The reader couldn’t tell which lines these are. Check the receipt and add them below.</p>`}
+    <div class="other-tools">
+      ${hasItems && html`<select value=${otherCategory(rv) || ''} aria-label="Category for other items"
+        onChange=${(e) => set({ otherCategoryId: e.currentTarget.value })}>
+        ${activeCategories().map((c) => html`<option value=${c.id}>${c.name}</option>`)}
+      </select>`}
+      ${files.length > 0 && html`<button class="pill-btn" onClick=${() => openViewer(files, 0)}><${Icon} name="receipt" size=${16} /> View receipt</button>`}
+      ${hasItems && html`<button class="pill-btn" onClick=${() => onAdd(null)}><${Icon} name="plus" size=${16} /> Add item</button>`}
+    </div>
+  </div>`;
+}
+
 function SummaryCard({ rv, set, setItem, totalCents, onSave, onEditAll }) {
   const room = roomById(rv.roomId);
   const sum = itemsTotal(rv);
@@ -522,7 +567,45 @@ function SummaryCard({ rv, set, setItem, totalCents, onSave, onEditAll }) {
   const hasItems = rv.items.length > 0;
   const missingCategory = hasItems ? rv.items.some((it) => !it.categoryId && !it.isDiscount) : !rv.wholeCategoryId;
   const over = hasItems && remainder < 0;
-  const removeItem = (id) => set((cur) => ({ items: cur.items.filter((it) => it.id !== id) }));
+  const showOther = (hasItems && remainder > 0) || rv.unmatched.some((u) => !u.used);
+
+  const removeItem = (id) => set((cur) => {
+    const gone = cur.items.find((it) => it.id === id);
+    return {
+      items: cur.items.filter((it) => it.id !== id),
+      unmatched: cur.unmatched.map((u) => (u.id === gone?.fromUnmatched ? { ...u, used: false } : u)),
+    };
+  });
+
+  /** Makes an unmatched receipt line (or a blank one) into its own item, opened for editing. */
+  const addItem = (u) => set((cur) => {
+    const left = (parseMoney(cur.totalText) ?? 0) - itemsTotal(cur);
+    const description = u ? u.label || u.text : '';
+    const s = suggestCategory(description, {
+      categories: state.categories, learned: state.learned, storeName: cur.store,
+      storeCategoryId: storeByName(cur.store)?.defaultCategoryId || null,
+    });
+    const categoryId = s.categoryId || otherCategory(cur);
+    const amountCents = u ? u.amountCents : left > 0 ? left : null;
+    return {
+      items: [...cur.items, {
+        id: uid(),
+        description,
+        amountText: amountCents != null ? centsToInput(amountCents) : '',
+        amountHint: left > 0 ? centsToInput(left) : '',
+        categoryId,
+        isTool: s.categoryId ? s.isTool : !!categoryById(categoryId)?.isTool,
+        confidence: 'high',
+        alternatives: s.alternatives,
+        ocrConfidence: 90,
+        isDiscount: (amountCents ?? 0) < 0,
+        roomId: null,
+        startOpen: true,
+        fromUnmatched: u?.id || null,
+      }],
+      unmatched: cur.unmatched.map((x) => (x.id === u?.id ? { ...x, used: true } : x)),
+    };
+  });
 
   return html`<div class="fc-body summary">
     <span class="fc-kicker">Last step</span>
@@ -535,14 +618,11 @@ function SummaryCard({ rv, set, setItem, totalCents, onSave, onEditAll }) {
             <span class="sum-text"><span class="sum-desc">Whole receipt</span>
               <small>${categoryById(rv.wholeCategoryId)?.name || 'No category'}${rv.wholeIsTool ? ' · 🔧 Tool' : ''}</small></span>
             <strong>${formatMoney(totalCents ?? 0)}</strong></div></div>`}
-      ${hasItems && remainder > 0 && html`<div class="sum-row extra"><div class="sum-main static">
-        <span class="sum-text"><span class="sum-desc">Other items on the receipt</span>
-          <small>Not read clearly · ${categoryById(mostCommonCategory(rv.items))?.name || 'Other'}</small></span>
-        <strong>${formatMoney(remainder)}</strong></div></div>`}
     </div>
-    ${hasItems && html`<div class="sum-check ${over ? 'warn' : 'ok'}">
+    ${showOther && html`<${OtherItems} rv=${rv} set=${set} remainder=${remainder} hasItems=${hasItems} onAdd=${addItem} />`}
+    ${hasItems && html`<div class="sum-check ${over ? 'warn' : remainder > 0 ? 'info' : 'ok'}">
       ${over ? html`<${Icon} name="alert" size=${16} /> Items add up to ${formatMoney(-remainder)} more than the total. Tap one to fix it.`
-        : remainder > 0 ? html`<${Icon} name="info" size=${16} /> ${formatMoney(remainder)} wasn’t matched to an item and is added as “Other items”.`
+        : remainder > 0 ? html`<${Icon} name="info" size=${16} /> ${formatMoney(remainder)} is saved as “Other items”, with these lines kept for reference.`
           : html`<${Icon} name="check" size=${16} stroke=${2.4} /> Items add up to the total`}
     </div>`}
     <div class="fc-actions">
@@ -569,9 +649,11 @@ function buildRecord(rv) {
     }));
     const remainder = (totalCents ?? 0) - lines.reduce((s, l) => s + l.amountCents, 0);
     if (remainder > 0) {
+      const unmatched = rv.unmatched.filter((u) => !u.used).map((u) => u.text).slice(0, 30);
       lines.push({
-        id: uid(), description: 'Other items on the receipt', amountCents: remainder, categoryId: mostCommonCategory(rv.items),
+        id: uid(), description: 'Other items on the receipt', amountCents: remainder, categoryId: otherCategory(rv),
         roomId: rv.roomId, isTool: false, auto: true, // auto: not a real item, so it isn't learned from
+        ...(unmatched.length ? { unmatched } : {}), // the receipt lines it probably covers, for reference
       });
     }
   } else {

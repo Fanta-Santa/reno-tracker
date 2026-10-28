@@ -381,7 +381,8 @@ export function ExpenseDetailView({ id }) {
         return html`<div class="row line-row" key=${l.id}>
           <span class="row-icon plain">${room ? roomType(room.type).emoji : '❔'}</span>
           ${l.description
-            ? html`<span class="row-label">${l.description}<small>${room?.name || 'Unknown room'} · ${category}${l.isTool ? ' · Tool' : ''}</small></span>`
+            ? html`<span class="row-label">${l.description}<small>${room?.name || 'Unknown room'} · ${category}${l.isTool ? ' · Tool' : ''}</small>
+                ${l.unmatched?.length > 0 && html`<span class="receipt-lines" aria-label="Lines on the receipt">${l.unmatched.map((t) => html`<span>${t}</span>`)}</span>`}</span>`
             : html`<span class="row-label">${room?.name || 'Unknown room'}<small>${category}${l.isTool ? ' · Tool' : ''}</small></span>`}
           ${e.lines.length > 1 && html`<span class="row-detail">${formatMoney(l.amountCents)}</span>`}
         </div>`;

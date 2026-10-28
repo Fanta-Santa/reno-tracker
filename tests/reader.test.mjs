@@ -151,6 +151,9 @@ test('OCR slips in numbers are fixed', () => {
   assert.equal(normaliseLine('TOTAL S84.50'), 'TOTAL $84.50');
   assert.equal(normaliseLine('Screws 1O.5O'), 'Screws 10.50');
   assert.equal(normaliseLine('Timber 48,00'), 'Timber 48.00');
+  assert.equal(normaliseLine('Glue  $14.9S'), 'Glue  $14.95');
+  assert.equal(normaliseLine('Timber   44.B0'), 'Timber   44.80');
+  assert.equal(normaliseLine('PINE 2.4M'), 'PINE 2.4M'); // a length, not a price
   assert.equal(tidyDescription('GORILLA GLUE 115ML'), 'Gorilla Glue 115ML');
 });
 
@@ -207,4 +210,39 @@ test('renamed categories still match by name', () => {
   assert.equal(suggestCategory('Ryobi 18V drill', { categories }).categoryId, 'x');
   assert.equal(suggestCategory('Treated pine sleeper', { categories }).categoryId, 'y');
   assert.equal(scoreKinds('Treated pine sleeper')[0].kind, 'materials');
+});
+
+test('lines that did not become items are listed, so you can match them up', () => {
+  const r = parseReceipt(lines(`
+BUNNINGS WAREHOUSE
+ABN 26 008 672 179
+TAX INVOICE
+27/10/2026 14:02
+SCREW BATTEN 14G X 75 50PK      $18.98
+GORILLA GLUE 115ML              $14.9S
+HANDLE GRIP PK2                 $ ..
+PINE MGP10 90X45 2.4M
+4 @ $11.2O    $44.B0
+$7.20
+9312345000017
+TOTAL                          $92.43
+EFTPOS                         $92.43`), { today: TODAY });
+  // Misread prices are rescued: "$14.9S" is $14.95, and 4 @ $11.20 is $44.80.
+  assert.deepEqual(r.items.map((i) => [i.description, i.amountCents]), [
+    ['Screw Batten 14G x 75 50PK', 1898],
+    ['Gorilla Glue 115ML', 1495],
+    ['Pine MGP10 90X45 2.4M', 4480],
+  ]);
+  // An item with no readable price, and a price with no item, are listed as they appear on the receipt.
+  assert.deepEqual(r.unmatched.map((u) => [u.label, u.amountCents, u.text]), [
+    ['Handle Grip PK2', null, 'HANDLE GRIP PK2   $ ..'],
+    ['', 720, '$7.20'],
+  ]);
+  // Header lines (store, ABN, date) and barcodes aren't listed.
+  assert.ok(!r.unmatched.some((u) => /abn|bunnings|tax invoice|9312345/i.test(u.text)));
+});
+
+test('nothing is listed as unmatched when every line became an item', () => {
+  assert.deepEqual(parseReceipt(BUNNINGS, { today: TODAY }).unmatched, []);
+  assert.deepEqual(parseReceipt(KENNARDS, { today: TODAY }).unmatched, []);
 });

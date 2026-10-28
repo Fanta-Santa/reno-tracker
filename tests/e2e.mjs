@@ -3,7 +3,8 @@
 // Needs Playwright with Chromium installed.
 
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -19,7 +20,23 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
 const PORT = 8765;
 const server = await serve(PORT);
-const browser = await chromium.launch();
+// A fake camera that "sees" a photo of a Bunnings receipt (a one-frame Y4M video, made with Python's Pillow).
+const CAMERA_FEED = join(FIXTURES, '..', '.tmp-camera.y4m');
+writeFileSync(CAMERA_FEED, execFileSync('python3', ['-I', '-c', `
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('YCbCr')
+w, h = im.width // 2 * 2, im.height // 2 * 2
+im = im.crop((0, 0, w, h))
+y, cb, cr = im.split()
+small = (w // 2, h // 2)
+out = sys.stdout.buffer
+out.write(f'YUV4MPEG2 W{w} H{h} F30:1 Ip A1:1 C420jpeg\\n'.encode())
+out.write(b'FRAME\\n' + y.tobytes() + cb.resize(small).tobytes() + cr.resize(small).tobytes())
+`, join(FIXTURES, 'bunnings-photo.jpg')], { maxBuffer: 64 * 1024 * 1024 }));
+const browser = await chromium.launch({
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${CAMERA_FEED}`],
+});
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
   deviceScaleFactor: 3,
@@ -340,7 +357,7 @@ try {
   await check('second phone: quick setup', async () => {
     const ctx = await browser.newContext({
       viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
-      locale: 'en-AU', timezoneId: 'Australia/Brisbane',
+      locale: 'en-AU', timezoneId: 'Australia/Brisbane', permissions: ['camera'],
     });
     page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(e.message));
@@ -353,8 +370,16 @@ try {
     await page.locator('h1', { hasText: 'Reader Reno' }).waitFor();
   });
 
-  await check('snap a receipt: read on the phone, confirmed with cards', async () => {
-    await choose(async () => tap(await addMenu('Snap a receipt')), join(FIXTURES, 'bunnings-photo.jpg'));
+  await check('snap a receipt with the app camera (light on), read on the phone, confirmed with cards', async () => {
+    await tap(await addMenu('Snap a receipt'));
+    await page.locator('.camera.live').waitFor();
+    // The test browser's fake camera has no light, so it says "No light"; an iPhone says "Light on".
+    await page.locator('.camera-light', { hasText: /Light on|No light/ }).waitFor();
+    await shot('camera');
+    await tap(page.getByRole('button', { name: 'Take photo' }));
+    await page.locator('.camera-review img').waitFor();
+    await shot('camera-review');
+    await tap(page.getByRole('button', { name: 'Use photo' }));
     await page.locator('.scan-line').waitFor();
     await shot('scanning');
     await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
@@ -386,8 +411,12 @@ try {
     await page.getByPlaceholder('Search store, item, room, amount').fill('');
   });
 
-  await check('quick snap is read in the background, then checked from the inbox', async () => {
+  await check('quick snap (iPhone camera) is read in the background, then checked from the inbox', async () => {
+    // Switch to the iPhone's own camera for the next two checks.
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByRole('switch', { name: 'Use the app’s camera' }));
     await choose(async () => tap(await addMenu('Quick snap')), join(FIXTURES, 'kennards-photo.jpg'));
+    await tap(page.locator('.tab', { hasText: 'Expenses' }));
     await expectToast('Receipt saved to inbox and being read');
     await tap(page.getByText('1 receipt to sort'));
     await page.locator('.tile-badge.ready').waitFor({ timeout: 90000 });
@@ -457,6 +486,67 @@ try {
     await shot('dashboard-reader');
   });
 
+  await check('unmatched receipt lines are listed under Other items, and can become items', async () => {
+    await choose(async () => tap(await addMenu('Upload PDF or screenshot')), join(FIXTURES, 'unmatched-order.pdf'));
+    await sheet().locator('.flash-card').waitFor({ timeout: 30000 });
+    assert.equal(await sheet().locator('.fc-field.total input').inputValue(), '95.33');
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await tap(sheet().locator('.room-tile', { hasText: 'Bathroom' }));
+    await finishCards();
+    const panel = sheet().locator('.other-panel');
+    await panel.getByText('2 lines not matched to a price yet').waitFor();
+    await panel.locator('.other-head strong', { hasText: '$31.55' }).waitFor();
+    assert.deepEqual(await panel.locator('.receipt-text').allTextContents(), ['HANDLE GRIP PK2', '$7.20']);
+    await shot('summary-unmatched');
+    // Make the handle grip its own item; its price wasn't on the receipt, so type it in.
+    await tap(panel.getByRole('button', { name: 'Add Handle Grip PK2 as an item' }));
+    const row = sheet().locator('.sum-row.open');
+    assert.equal(await row.locator('.sum-edit > input').inputValue(), 'Handle Grip PK2');
+    assert.equal(await row.locator('.fc-money input').getAttribute('placeholder'), '31.55');
+    await row.locator('.fc-money input').fill('24.35');
+    await panel.getByText('1 line not matched to a price yet').waitFor();
+    await panel.locator('.other-head strong', { hasText: '$7.20' }).waitFor();
+    await shot('summary-unmatched-added');
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await expectToast('Expense saved');
+    await tap(page.locator('.tab', { hasText: 'Expenses' }));
+    await tap(page.locator('.expense-row', { hasText: '$95.33' }));
+    const other = page.locator('.line-row', { hasText: 'Other items on the receipt' });
+    await other.locator('.receipt-lines', { hasText: '$7.20' }).waitFor();
+    await page.locator('.line-row', { hasText: 'Handle Grip PK2' }).getByText('$24.35').waitFor();
+    await shot('detail-unmatched');
+    await tap(page.locator('.nav-back'));
+  });
+
+  await check('quick snap with the app camera takes several photos in a row', async () => {
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByRole('switch', { name: 'Use the app’s camera' }));
+    assert.equal(await page.getByRole('switch', { name: 'Use the app’s camera' }).isChecked(), true);
+    await tap(await addMenu('Quick snap'));
+    await page.locator('.camera.live').waitFor();
+    await tap(page.getByRole('button', { name: 'Take photo' }));
+    await page.locator('.camera-count', { hasText: '1' }).waitFor();
+    await tap(page.getByRole('button', { name: 'Take photo' }));
+    await page.locator('.camera-count', { hasText: '2' }).waitFor();
+    await shot('camera-multi');
+    await tap(page.locator('.camera-text', { hasText: 'Done' }));
+    await expectToast('2 receipts saved to inbox and being read');
+  });
+
+  await check('if the camera is blocked, the iPhone camera is offered instead', async () => {
+    await page.evaluate(() => {
+      navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+    });
+    await tap(await addMenu('Snap a receipt'));
+    await page.getByText('Camera access is switched off for this app').waitFor();
+    await shot('camera-blocked');
+    await choose(() => tap(page.getByRole('button', { name: 'Use iPhone camera' })), join(FIXTURES, 'kennards-photo.jpg'));
+    await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Kennards Hire');
+    await tap(sheet().getByRole('button', { name: 'Cancel' }));
+    await expectToast('Receipt not saved');
+  });
+
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);
   console.log('\nAll browser checks passed.');
 } finally {
@@ -464,4 +554,5 @@ try {
   server.close();
   const { rmSync } = await import('node:fs');
   rmSync(join(FIXTURES, '..', '.tmp-backup.zip'), { force: true });
+  rmSync(CAMERA_FEED, { force: true });
 }

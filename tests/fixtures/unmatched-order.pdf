@@ -1,0 +1,48 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 721 >>
+stream
+BT
+/F1 18 Tf 1 0 0 1 50 790 Tm (BUNNINGS WAREHOUSE) Tj
+/F1 10 Tf 1 0 0 1 50 765 Tm (TAX INVOICE  ABN 26 008 672 179) Tj
+/F1 10 Tf 1 0 0 1 50 750 Tm (Date 20/10/2026  14:10) Tj
+/F1 11 Tf 1 0 0 1 50 715 Tm (SCREW BATTEN 14G X 75 50PK) Tj
+/F1 11 Tf 1 0 0 1 480 715 Tm ($18.98) Tj
+/F1 11 Tf 1 0 0 1 50 698 Tm (HANDLE GRIP PK2) Tj
+/F1 11 Tf 1 0 0 1 50 681 Tm (PINE MGP10 90X45 2.4M) Tj
+/F1 11 Tf 1 0 0 1 480 681 Tm ($44.80) Tj
+/F1 11 Tf 1 0 0 1 480 664 Tm ($7.20) Tj
+/F1 11 Tf 1 0 0 1 50 630 Tm (TOTAL) Tj
+/F1 11 Tf 1 0 0 1 480 630 Tm ($95.33) Tj
+/F1 11 Tf 1 0 0 1 50 613 Tm (GST INCLUDED IN TOTAL) Tj
+/F1 11 Tf 1 0 0 1 487 613 Tm ($8.67) Tj
+/F1 11 Tf 1 0 0 1 50 596 Tm (EFTPOS) Tj
+/F1 11 Tf 1 0 0 1 480 596 Tm ($95.33) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001012 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1082
+%%EOF

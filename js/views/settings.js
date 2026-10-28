@@ -103,9 +103,12 @@ export function SettingsView() {
     <//>
 
     <${Group} title="Receipt reading"
-      footer="Reads the store, date, total and each item from your receipts, then asks you to confirm. It all happens on this phone. Nothing is uploaded. It learns from the categories you pick.">
+      footer="Reads the store, date, total and each item from your receipts, then asks you to confirm. It all happens on this phone. Nothing is uploaded. It learns from the categories you pick. The app’s camera turns the iPhone’s light on, which helps with faded receipts. Switch it off to use the iPhone’s own camera.">
       <${Row} icon="receipt" iconBg="#5E5CE6" label="Read receipts automatically">
         <${Switch} label="Read receipts automatically" checked=${autoRead} onChange=${(on) => setPrefs({ autoRead: on })} />
+      <//>
+      <${Row} icon="camera" iconBg="#FF9F0A" label="Use the app’s camera (light on)">
+        <${Switch} label="Use the app’s camera" checked=${state.prefs.appCamera !== false} onChange=${(on) => setPrefs({ appCamera: on })} />
       <//>
       <${Row} icon="storage" iconBg="#8E8E93" label="Reader"
         detail=${readerCached == null ? '…' : readerCached ? 'Ready offline' : 'Downloads on first use (7 MB)'} />

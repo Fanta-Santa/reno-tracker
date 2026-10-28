@@ -23,6 +23,9 @@ export function normaliseLine(raw) {
   t = t.replace(/(?<=\d)[oO](?=[\d.,])|(?<=[\d.,])[oO](?=\d)/g, '0');
   t = t.replace(/(?<=\d)[lI](?=[\d.,])|(?<=[\d.,])[lI](?=\d)/g, '1');
   t = t.replace(/(\d[.,])([\doO]{2})\b/g, (m, a, b) => a + b.replace(/[oO]/g, '0')); // cents like .5O
+  // A price at the end of a line with a letter misread for a digit: "$14.9S" → "$14.95", "$44.B0" → "$44.80".
+  t = t.replace(/(\$\s?\d{1,4}[.,]|\s\d{1,4}[.,])([\dSsBbOoIl]{2})(\s*-?)$/, (m, a, b, c) => (/\d/.test(b) || a.includes('$')
+    ? a + b.replace(/[Ss]/g, '5').replace(/B/g, '8').replace(/b/g, '6').replace(/[Oo]/g, '0').replace(/[Il]/g, '1') + c : m));
   t = t.replace(/(^|\s)[S5](?=\d{1,4}[.,]\d{2}\b)/g, '$1$'); // "S84.50" → "$84.50"
   t = t.replace(/(\d)\s?,\s?(\d{2})(?!\d)/g, '$1.$2'); // decimal comma
   t = t.replace(/(\d)\s\.\s?(\d{2})\b/g, '$1.$2'); // "84 .50"
@@ -79,14 +82,22 @@ function analyse(raw, confidence) {
   }
   const code = label.match(/\b\d{8,14}\b/);
   if (code) label = label.replace(code[0], ' ');
-  label = label.replace(/[\s:*#=~_.-]+$/, '').replace(/^[\s:*#=~_.-]+/, '').replace(/\s{2,}/g, ' ').trim();
+  label = label.replace(/[\s:*#=~_.$-]+$/, '').replace(/^[\s:*#=~_.-]+/, '').replace(/\s{2,}/g, ' ').trim();
   const letters = (label.match(/[a-z]/gi) || []).length;
+  let amount = amounts.length ? amounts[amounts.length - 1].cents : null;
+  let unitAmount = amounts.length > 1 ? amounts[0].cents : null;
+  // "4 @ $11.20  $44.B0": the line total is unreadable, but quantity × unit price gives it.
+  const each = text.match(/(?:^|\s)(\d{1,3})\s*@\s*\$?\s?(\d+)\.(\d{2})(?!\d)/);
+  if (each && amounts.length === 1) {
+    unitAmount = Number(each[2]) * 100 + Number(each[3]);
+    amount = Number(each[1]) * unitAmount;
+  }
   return {
     raw,
     text,
     label: letters >= 2 ? label : '',
-    amount: amounts.length ? amounts[amounts.length - 1].cents : null,
-    unitAmount: amounts.length > 1 ? amounts[0].cents : null,
+    amount,
+    unitAmount,
     qty,
     confidence: confidence ?? 90,
     kind: letters >= 2 ? kindOf(label) : null,
@@ -261,6 +272,37 @@ export function tidyDescription(label) {
   return s.replace(/^[^a-z0-9]+/i, '').slice(0, 80);
 }
 
+// ---------- Lines that didn't become items ----------
+
+const HEADER_RE = /\b(abn|acn|tax invoice|invoice|receipt|welcome|phone|ph|tel|fax|www|pty|ltd|limited|group|store|branch|cashier|operator|served|reg|trans|terminal)\b|\.com\b|\b(qld|nsw|vic|sa|wa|tas|nt|act)\b\s*\d{4}\b/i;
+
+/**
+ * Lines between the receipt's header and its totals that weren't turned into items:
+ * an item whose price was misread, a price on its own, a line the reader wasn't sure about.
+ * They're listed under "Other items" so you can match them up with the receipt.
+ * Returns [{ text, label, amountCents }].
+ */
+function findUnmatched(lines, end, used, storeName) {
+  const isHeader = (l, i) => i === 0 || HEADER_RE.test(l.text) || datesIn(l.text).length > 0
+    || (storeName && storeMatch(l.text, storeName) != null);
+  const firstItem = [...used].sort((a, b) => a - b)[0] ?? end;
+  // The header ends at the last header-looking line before the first item.
+  let start = 0;
+  for (let i = 0; i < Math.min(firstItem, 14); i++) if (isHeader(lines[i], i)) start = i + 1;
+  const out = [];
+  for (let i = start; i < end; i++) {
+    if (used.has(i)) continue;
+    const l = lines[i];
+    const letters = (l.text.match(/[a-z]/gi) || []).length;
+    if (letters < 2 && !l.amount) continue; // a barcode, a row of dashes
+    if (['change', 'payment', 'gst', 'total', 'subtotal'].includes(l.kind)) continue;
+    if (isHeader(l, i) && !l.amount) continue;
+    const label = l.label ? tidyDescription(l.label.replace(/\s+\$\S*$/, '')) : ''; // drop a garbled price
+    out.push({ text: l.raw.trim().replace(/\s{2,}/g, '   '), label, amountCents: l.amount || null });
+  }
+  return out.slice(0, 40);
+}
+
 // ---------- Putting it together ----------
 
 /**
@@ -308,13 +350,15 @@ export function parseReceipt(rawLines, { knownStores = [], today = null } = {}) 
   const firstTotalIndex = lines.findIndex((l) => ['subtotal', 'total', 'gst', 'payment'].includes(l.kind) && l.amount != null);
   const end = firstTotalIndex >= 0 ? firstTotalIndex : lines.length;
   const items = [];
-  for (const l of lines.slice(0, end)) {
-    if (!l.amount || !l.label) continue; // no price, or a $0.00 line such as free delivery
-    if (['noise', 'change', 'payment', 'gst', 'total', 'subtotal'].includes(l.kind)) continue;
-    if (datesIn(l.text).length) continue;
-    if (totalCents && l.amount === totalCents && items.length) continue;
+  const used = new Set();
+  lines.slice(0, end).forEach((l, i) => {
+    if (!l.amount || !l.label) return; // no price, or a $0.00 line such as free delivery
+    if (['noise', 'change', 'payment', 'gst', 'total', 'subtotal'].includes(l.kind)) return;
+    if (datesIn(l.text).length) return;
+    if (totalCents && l.amount === totalCents && items.length) return;
     const description = tidyDescription(l.label);
-    if (!description) continue;
+    if (!description) return;
+    used.add(i);
     items.push({
       description,
       amountCents: l.amount,
@@ -322,7 +366,8 @@ export function parseReceipt(rawLines, { knownStores = [], today = null } = {}) 
       ocrConfidence: l.confidence,
       isDiscount: l.kind === 'discount' || l.amount < 0,
     });
-  }
+  });
+  const unmatched = findUnmatched(lines, end, used, store.value);
 
   const itemsSum = items.reduce((s, it) => s + it.amountCents, 0);
   const itemsMatchTotal = !!(items.length && totalCents != null && Math.abs(itemsSum - totalCents) <= 2);
@@ -342,6 +387,7 @@ export function parseReceipt(rawLines, { knownStores = [], today = null } = {}) 
     total: { cents: totalCents, confidence: totalConfidence },
     gst: { cents: gstCents, matches: gstMatches },
     items,
+    unmatched,
     itemsSum,
     itemsMatchTotal,
     text: rawLines.map((l) => l.text).join('\n'),
