@@ -16,6 +16,8 @@ import { navigate, goBack } from '../ui/router.js';
 import { openViewer } from '../ui/viewer.js';
 import { openExpenseForm } from './expense-form.js';
 import { captureToInbox } from './capture.js';
+import { reviewInbox } from './review.js';
+import { readerEnabled, useReadingId, foundSomething } from '../reader/queue.js';
 
 // ---------- Filters ----------
 
@@ -37,8 +39,9 @@ const activeFilterCount = (f) => f.rooms.length + f.categories.length + f.stores
 function searchText(e) {
   const rooms = e.lines.map((l) => roomById(l.roomId)?.name);
   const cats = e.lines.map((l) => categoryById(l.categoryId)?.name);
-  return [e.store, e.description, e.notes, ...rooms, ...cats, formatMoney(e.totalCents), centsToInput(e.totalCents), formatDate(e.date)]
-    .join(' ').toLowerCase();
+  const items = e.lines.map((l) => l.description);
+  return [e.store, e.description, e.notes, ...items, ...rooms, ...cats, formatMoney(e.totalCents), centsToInput(e.totalCents),
+    formatDate(e.date), e.receiptText].join(' ').toLowerCase();
 }
 
 /** Returns matching expenses, each with `shownCents`: the part of it that matches room/category/tool filters. */
@@ -274,24 +277,53 @@ export function ExpensesView() {
 
 // ---------- Inbox ----------
 
+function InboxTile({ e, readingId }) {
+  const scan = e.scan;
+  const found = scan?.status === 'done' && foundSomething(scan.result);
+  let title;
+  let sub;
+  let badge = null;
+  if (e.totalCents != null) {
+    title = formatMoney(e.totalCents);
+    sub = e.store || formatDate(e.date);
+  } else if (found) {
+    const r = scan.result;
+    title = r.total.cents != null ? formatMoney(r.total.cents) : 'Ready to check';
+    sub = r.store.value || formatDate(e.date);
+    badge = html`<span class="tile-badge ready"><${Icon} name="check" size=${12} stroke=${2.8} /> Read</span>`;
+  } else if (readingId === e.id) {
+    title = 'Reading…';
+    sub = formatDate(e.date);
+    badge = html`<span class="tile-badge"><span class="spinner tiny" /></span>`;
+  } else if (readerEnabled() && (!scan || scan.status === 'failed')) {
+    title = scan ? 'Tap to fill in' : 'Waiting to read';
+    sub = formatDate(e.date);
+  } else {
+    title = 'Tap to sort';
+    sub = formatDate(e.date);
+  }
+  const open = () => (readerEnabled() ? reviewInbox(e.id) : openExpenseForm({ expense: e }));
+  return html`<button class="inbox-tile" onClick=${open}>
+    <span class="inbox-tile-photo"><${Thumb} fileId=${e.fileIds[0]} size=${200} />${badge}</span>
+    <span class="inbox-tile-meta"><strong>${title}</strong><small>${sub}</small></span>
+  </button>`;
+}
+
 export function InboxView() {
   useStore();
+  const readingId = useReadingId();
   const inbox = inboxExpenses();
-  return html`<${Page} title="Inbox" subtitle="Receipts you snapped to sort later" back=${{ label: 'Expenses', to: '/expenses' }}>
+  const ready = inbox.filter((e) => e.scan?.status === 'done' && foundSomething(e.scan.result)).length;
+  return html`<${Page} title="Inbox" subtitle=${readerEnabled() ? 'Snapped receipts are read on this phone, ready for you to check' : 'Receipts you snapped to sort later'}
+    back=${{ label: 'Expenses', to: '/expenses' }}>
+    ${ready > 0 && html`<button class="wide-btn primary" onClick=${() => reviewInbox()}>
+      <${Icon} name="check" size=${20} stroke=${2.4} /> ${ready === 1 ? 'Check receipt' : `Check ${ready === inbox.length ? 'all' : ready} receipts`}</button>`}
     <div class="button-row">
       <button class="pill-btn big" onClick=${() => captureToInbox('camera')}><${Icon} name="camera" size=${18} /> Snap</button>
       <button class="pill-btn big" onClick=${() => captureToInbox('photos')}><${Icon} name="photo" size=${18} /> From Photos</button>
     </div>
     ${!inbox.length ? html`<${EmptyState} emoji="🎉" title="All sorted" text="Nothing waiting. Quick-snapped receipts land here." />`
-      : html`<div class="inbox-grid">
-        ${inbox.map((e) => html`<button class="inbox-tile" key=${e.id} onClick=${() => openExpenseForm({ expense: e })}>
-          <${Thumb} fileId=${e.fileIds[0]} size=${200} />
-          <span class="inbox-tile-meta">
-            <strong>${e.totalCents != null ? formatMoney(e.totalCents) : 'Tap to sort'}</strong>
-            <small>${e.store || formatDate(e.date)}</small>
-          </span>
-        </button>`)}
-      </div>`}
+      : html`<div class="inbox-grid">${inbox.map((e) => html`<${InboxTile} key=${e.id} e=${e} readingId=${readingId} />`)}</div>`}
   <//>`;
 }
 
@@ -342,12 +374,15 @@ export function ExpenseDetailView({ id }) {
       ${e.description && html`<${Row} icon="tag" iconBg="#5856D6" label="Item" detail=${e.description} />`}
     <//>
 
-    <${Group} title=${e.lines.length > 1 ? 'Split' : 'Room & category'}>
+    <${Group} title=${e.lines.some((l) => l.description) ? 'Items' : e.lines.length > 1 ? 'Split' : 'Room & category'}>
       ${e.lines.map((l) => {
         const room = roomById(l.roomId);
+        const category = categoryById(l.categoryId)?.name || '';
         return html`<div class="row line-row" key=${l.id}>
           <span class="row-icon plain">${room ? roomType(room.type).emoji : '❔'}</span>
-          <span class="row-label">${room?.name || 'Unknown room'}<small>${categoryById(l.categoryId)?.name || ''}${l.isTool ? ' · Tool' : ''}</small></span>
+          ${l.description
+            ? html`<span class="row-label">${l.description}<small>${room?.name || 'Unknown room'} · ${category}${l.isTool ? ' · Tool' : ''}</small></span>`
+            : html`<span class="row-label">${room?.name || 'Unknown room'}<small>${category}${l.isTool ? ' · Tool' : ''}</small></span>`}
           ${e.lines.length > 1 && html`<span class="row-detail">${formatMoney(l.amountCents)}</span>`}
         </div>`;
       })}

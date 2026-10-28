@@ -5,11 +5,13 @@ import { useEffect, useState } from './lib.js';
 import * as db from './db.js';
 import { DEFAULT_CATEGORIES, DEFAULT_STORES } from './defaults.js';
 import { expenseGst, todayISO } from './format.js';
+import { itemKey } from './reader/categorize.js';
 
 export const state = {
   loaded: false,
   project: null, // { key: 'project', name, gstRate, createdAt }
-  prefs: { key: 'prefs' }, // lastStore, lastRoomId, lastBackupAt
+  prefs: { key: 'prefs' }, // lastStore, lastRoomId, lastBackupAt, autoRead
+  learned: {}, // receipt item → the category you chose for it: { [itemKey]: { categoryId, isTool } }
   rooms: [], // { id, name, type, budgetCents, order, archived }
   categories: [], // { id, name, isTool, order, archived }
   stores: [], // { id, name, defaultCategoryId, order }
@@ -50,6 +52,7 @@ export async function loadAll() {
   );
   state.project = meta.find((m) => m.key === 'project') || null;
   state.prefs = meta.find((m) => m.key === 'prefs') || { key: 'prefs' };
+  state.learned = meta.find((m) => m.key === 'learned')?.items || {};
   state.rooms = rooms.sort(byOrder);
   state.categories = categories.sort(byOrder);
   state.stores = stores.sort(byOrder);
@@ -152,7 +155,8 @@ export function blankExpense() {
     gstMode: 'auto', // 'auto' = 1/11 of total, 'none' = GST-free, 'custom' = gstCents as entered
     gstCents: null,
     notes: '',
-    lines: [], // [{ id, roomId, categoryId, amountCents, isTool }] — add up to totalCents
+    lines: [], // [{ id, roomId, categoryId, amountCents, isTool, description? }] — add up to totalCents
+    receiptText: '', // what the receipt reader saw, kept for search
     fileIds: [],
     quoteId: null,
     createdAt: now,
@@ -200,7 +204,32 @@ async function learnFrom(expense) {
   }
   state.prefs = { ...state.prefs, lastStore: storeName, lastRoomId: main.roomId };
   ops.push({ store: 'meta', put: state.prefs });
+
+  // Remember each item's category, so the receipt reader suggests it next time.
+  const items = expense.lines.filter((l) => l.description && !l.auto && itemKey(l.description));
+  if (items.length) {
+    const learned = { ...state.learned };
+    for (const l of items) {
+      const key = itemKey(l.description);
+      delete learned[key]; // re-insert so the newest are kept when trimming
+      learned[key] = { categoryId: l.categoryId, isTool: !!l.isTool };
+    }
+    const keys = Object.keys(learned);
+    for (const k of keys.slice(0, Math.max(0, keys.length - 2000))) delete learned[k];
+    state.learned = learned;
+    ops.push({ store: 'meta', put: { key: 'learned', items: learned } });
+  }
   await db.write(ops);
+}
+
+/** Stores what the receipt reader found for an inbox receipt (no Undo needed). */
+export async function setScan(id, scan) {
+  const current = state.expenses.find((e) => e.id === id);
+  if (!current) return;
+  const record = { ...current, scan };
+  await db.put('expenses', record);
+  putExpenseInState(record);
+  changed();
 }
 
 /**
@@ -356,6 +385,7 @@ export async function replaceEverything(data, files) {
     ...db.STORE_NAMES.map((store) => ({ store, clear: true })),
     ...(data.project ? [{ store: 'meta', put: data.project }] : []),
     { store: 'meta', put: { ...(data.prefs || {}), key: 'prefs' } },
+    { store: 'meta', put: { key: 'learned', items: data.learned || {} } },
     ...['rooms', 'categories', 'stores', 'expenses', 'quotes']
       .flatMap((store) => (data[store] || []).map((put) => ({ store, put }))),
     ...files.map((put) => ({ store: 'files', put })),

@@ -1,12 +1,12 @@
 // Settings: project name, rooms/stages, categories, stores, backup & restore, and this phone's storage.
 
 import { html, useEffect, useState } from '../lib.js';
-import { state, useStore, updateProject, saveItem, removeItem, moveItem, isInUse } from '../store.js';
+import { state, useStore, updateProject, saveItem, removeItem, moveItem, isInUse, setPrefs } from '../store.js';
 import { roomType } from '../defaults.js';
 import { formatBytes, formatMoney, formatTimestamp } from '../format.js';
 import { saveBackup, inspectBackup, restoreBackup } from '../backup.js';
 import {
-  Page, Group, Row, openSheet, SheetHeader, toast, toastUndo, withBusy, pickFiles, confirmAction,
+  Switch, Page, Group, Row, openSheet, SheetHeader, toast, toastUndo, withBusy, pickFiles, confirmAction,
 } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
@@ -46,6 +46,23 @@ export async function runRestore() {
 
 // ---------- Main settings screen ----------
 
+/** Has the receipt reader's language file been downloaded and kept for offline use? */
+function useReaderCached() {
+  const [cached, setCached] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const key = (await caches.keys()).find((k) => k.startsWith('reno-tracker-reader'));
+        const hit = key && await (await caches.open(key)).match('vendor/tesseract/lang/eng.traineddata.gz');
+        setCached(!!hit);
+      } catch {
+        setCached(false);
+      }
+    })();
+  }, []);
+  return cached;
+}
+
 function useStorageInfo() {
   const [info, setInfo] = useState(null);
   useEffect(() => {
@@ -61,6 +78,8 @@ function useStorageInfo() {
 export function SettingsView() {
   useStore();
   const storage = useStorageInfo();
+  const readerCached = useReaderCached();
+  const autoRead = state.prefs.autoRead !== false;
   const lastBackup = state.prefs.lastBackupAt;
   const active = (list) => list.filter((x) => !x.archived).length;
 
@@ -81,6 +100,15 @@ export function SettingsView() {
       <${Row} icon="house" iconBg="#34C759" label="Rooms & stages" detail=${active(state.rooms)} onClick=${() => navigate('/settings/rooms')} />
       <${Row} icon="tag" iconBg="#5856D6" label="Categories" detail=${active(state.categories)} onClick=${() => navigate('/settings/categories')} />
       <${Row} icon="store" iconBg="#FF9500" label="Stores" detail=${state.stores.length} onClick=${() => navigate('/settings/stores')} />
+    <//>
+
+    <${Group} title="Receipt reading"
+      footer="Reads the store, date, total and each item from your receipts, then asks you to confirm. It all happens on this phone. Nothing is uploaded. It learns from the categories you pick.">
+      <${Row} icon="receipt" iconBg="#5E5CE6" label="Read receipts automatically">
+        <${Switch} label="Read receipts automatically" checked=${autoRead} onChange=${(on) => setPrefs({ autoRead: on })} />
+      <//>
+      <${Row} icon="storage" iconBg="#8E8E93" label="Reader"
+        detail=${readerCached == null ? '…' : readerCached ? 'Ready offline' : 'Downloads on first use (7 MB)'} />
     <//>
 
     <${Group} title="Backup" footer="A backup is one .zip file with all your data and receipt photos. Save it to iCloud Drive or Files. It can be restored on this phone or a new one.">

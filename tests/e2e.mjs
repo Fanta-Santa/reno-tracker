@@ -29,7 +29,7 @@ const context = await browser.newContext({
   locale: 'en-AU',
   timezoneId: 'Australia/Brisbane',
 });
-const page = await context.newPage();
+let page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -46,6 +46,7 @@ async function check(name, fn) {
     console.log(`  ✓ ${name}`);
   } catch (err) {
     console.log(`  ✗ ${name}`);
+    if (errors.length) console.log(`Browser errors so far:\n${errors.join('\n')}`);
     await page.screenshot({ path: join(FIXTURES, '..', 'failure.png') }).catch(() => {});
     throw err;
   }
@@ -61,6 +62,20 @@ async function addMenu(label) {
   return page.locator('.action-btn', { hasText: label });
 }
 const expectToast = (text) => page.locator('.toast-msg', { hasText: text }).waitFor();
+
+/** Answers any "not sure" item cards (accepting the suggestion, or the first category) until the summary shows. */
+async function finishCards() {
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(450);
+    if (await sheet().getByText('All set?').isVisible()) return;
+    const kicker = (await sheet().locator('.flash-card .fc-kicker').textContent()) || '';
+    if (!kicker.startsWith('Not sure')) continue;
+    const ok = sheet().getByRole('button', { name: 'Correct', exact: true });
+    if (await ok.isDisabled()) await tap(sheet().locator('.flash-card .chip').first());
+    else await tap(ok);
+  }
+  throw new Error('Never reached the summary card');
+}
 
 try {
   await page.goto(`http://localhost:${PORT}/`);
@@ -141,7 +156,9 @@ try {
     await page.waitForTimeout(400);
   });
 
-  await check('photo receipt saved to the inbox, then sorted', async () => {
+  await check('with reading switched off, photos go to the form and the inbox', async () => {
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByRole('switch', { name: 'Read receipts automatically' }));
     await choose(async () => tap(await addMenu('Upload PDF or screenshot')), join(FIXTURES, 'receipt.jpg'));
     await sheet().locator('.receipt-tile img').waitFor();
     await shot('form-with-photo');
@@ -152,8 +169,7 @@ try {
     await page.getByText('1 receipt to sort').waitFor();
     await shot('expenses-with-inbox');
     await tap(page.getByText('1 receipt to sort'));
-    await page.locator('.inbox-tile').waitFor();
-    await shot('inbox');
+    await page.locator('.inbox-tile', { hasText: 'Tap to sort' }).waitFor();
     await tap(page.locator('.inbox-tile'));
     await page.getByText('Sort receipt').waitFor();
     await sheet().locator('#amount').fill('84.50');
@@ -163,15 +179,21 @@ try {
     await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
     await expectToast('Receipt sorted');
     await page.getByText('All sorted').waitFor();
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByRole('switch', { name: 'Read receipts automatically' }));
+    assert.equal(await page.getByRole('switch', { name: 'Read receipts automatically' }).isChecked(), true);
   });
 
-  await check('PDF receipt with a preview', async () => {
+  await check('scanned PDF is read, then confirmed with cards', async () => {
     await choose(async () => tap(await addMenu('Upload PDF or screenshot')), join(FIXTURES, 'order.pdf'));
-    await sheet().locator('.receipt-tile img').waitFor({ timeout: 15000 });
-    await sheet().locator('#amount').fill('87');
-    await sheet().getByPlaceholder('e.g. Bunnings').fill('Mitre 10 Online');
-    await tap(sheet().locator('.chip', { hasText: 'Materials' }));
-    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    assert.equal(await sheet().locator('.fc-field.total input').inputValue(), '87.00');
+    await sheet().getByPlaceholder('Store or supplier').fill('Mitre 10 Online');
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await tap(sheet().locator('.room-tile', { hasText: 'Bathroom' }));
+    await finishCards();
+    await sheet().getByText('Items add up to the total').waitFor();
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
     await expectToast('Expense saved');
   });
 
@@ -311,6 +333,128 @@ try {
     await p2.locator('.expense-row', { hasText: 'Mitre 10 Online' }).click();
     await p2.locator('.receipt-big img').waitFor();
     await fresh.close();
+  });
+
+  // ---------- Receipt reading, on a second "phone" ----------
+
+  await check('second phone: quick setup', async () => {
+    const ctx = await browser.newContext({
+      viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+      locale: 'en-AU', timezoneId: 'Australia/Brisbane',
+    });
+    page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(`http://localhost:${PORT}/`);
+    await tap(page.getByText('Start a new project'));
+    await page.getByPlaceholder('e.g. Smith St reno').fill('Reader Reno');
+    await tap(page.getByRole('button', { name: 'Next' }));
+    await tap(page.getByRole('button', { name: /Create project with 5 rooms/ }));
+    await page.locator('h1', { hasText: 'Reader Reno' }).waitFor();
+  });
+
+  await check('snap a receipt: read on the phone, confirmed with cards', async () => {
+    await choose(async () => tap(await addMenu('Snap a receipt')), join(FIXTURES, 'bunnings-photo.jpg'));
+    await page.locator('.scan-line').waitFor();
+    await shot('scanning');
+    await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    await shot('card-details');
+    assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Bunnings');
+    assert.equal(await sheet().locator('.fc-field.total input').inputValue(), '144.21');
+    assert.equal(await sheet().locator('.fc-field input[type="date"]').inputValue(), '2026-10-27');
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await sheet().getByText('Where’s this for?').waitFor();
+    await shot('card-room');
+    await tap(sheet().locator('.room-tile', { hasText: 'Kitchen' }));
+    await finishCards();
+    await sheet().getByText('Items add up to the total').waitFor();
+    assert.equal(await sheet().locator('.sum-row').count(), 5);
+    await shot('card-summary');
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await expectToast('Expense saved');
+    await tap(page.locator('.tab', { hasText: 'Expenses' }));
+    await page.locator('.expense-row', { hasText: 'Buildex Screw Batten' }).locator('.tag.tool').waitFor();
+    await tap(page.locator('.expense-row', { hasText: 'Bunnings' }));
+    await page.locator('.group-title', { hasText: 'Items' }).waitFor();
+    assert.equal(await page.locator('.line-row').count(), 5);
+    await page.locator('.line-row', { hasText: 'Ozito 18V Drill Driver Skin Only' }).getByText(/Tools · Tool/).waitFor();
+    await shot('detail-items');
+    await tap(page.locator('.nav-back'));
+    // Search finds an item on the receipt.
+    await page.getByPlaceholder('Search store, item, room, amount').fill('gorilla');
+    await page.locator('.expense-row', { hasText: 'Bunnings' }).waitFor();
+    await page.getByPlaceholder('Search store, item, room, amount').fill('');
+  });
+
+  await check('quick snap is read in the background, then checked from the inbox', async () => {
+    await choose(async () => tap(await addMenu('Quick snap')), join(FIXTURES, 'kennards-photo.jpg'));
+    await expectToast('Receipt saved to inbox and being read');
+    await tap(page.getByText('1 receipt to sort'));
+    await page.locator('.tile-badge.ready').waitFor({ timeout: 90000 });
+    await page.locator('.inbox-tile', { hasText: '$167.00' }).waitFor();
+    await shot('inbox-read');
+    await tap(page.getByRole('button', { name: 'Check receipt' }));
+    await sheet().locator('.flash-card').waitFor();
+    assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Kennards Hire');
+    assert.equal(await sheet().locator('.fc-field input[type="date"]').inputValue(), '2026-10-14');
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await tap(sheet().locator('.room-tile', { hasText: 'Deck' }));
+    // "Delivery" could be anything, so it gets a card.
+    await sheet().getByText('Not sure about one item').waitFor();
+    assert.equal(await sheet().locator('.fc-item-desc').inputValue(), 'Delivery');
+    await shot('card-item');
+    await tap(sheet().locator('.flash-card .chip', { hasText: 'Equipment hire' }));
+    await sheet().getByText('All set?').waitFor();
+    assert.equal(await sheet().locator('.sum-row').count(), 3);
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await expectToast('Expense saved');
+    await page.getByText('All sorted').waitFor();
+  });
+
+  await check('the reader remembers your choices; Edit all opens the form', async () => {
+    await choose(async () => tap(await addMenu('Snap a receipt')), join(FIXTURES, 'kennards-photo.jpg'));
+    await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    assert.equal(await sheet().locator('.dots span').count(), 3); // details, room, summary: no item cards now
+    // Swipe right to confirm a card.
+    const card = await sheet().locator('.flash-card').boundingBox();
+    const y = card.y + 60;
+    await page.mouse.move(card.x + 60, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(card.x + 60 + i * 16, y);
+    await page.mouse.up();
+    await sheet().getByText('Where’s this for?').waitFor();
+    await tap(sheet().locator('.room-tile', { hasText: 'Deck' }));
+    await sheet().getByText('All set?').waitFor();
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await page.getByText('Looks like one you’ve already logged').waitFor();
+    await tap(page.locator('.action-cancel'));
+    await page.waitForTimeout(400);
+    await tap(sheet().getByRole('button', { name: 'Edit all', exact: true }));
+    await page.getByText('New expense').waitFor();
+    await sheet().locator('.split-desc').nth(2).waitFor();
+    assert.equal(await sheet().locator('.split-desc').count(), 3);
+    assert.equal(await sheet().locator('.split-desc').nth(2).inputValue(), 'Delivery');
+    await shot('edit-all-form');
+    await tap(sheet().getByRole('button', { name: 'Cancel' }));
+    await page.waitForTimeout(400);
+  });
+
+  await check('online order PDF is read exactly', async () => {
+    await choose(async () => tap(await addMenu('Upload PDF or screenshot')), join(FIXTURES, 'online-order.pdf'));
+    await sheet().locator('.flash-card').waitFor({ timeout: 30000 });
+    assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Amazon');
+    assert.equal(await sheet().locator('.fc-field.total input').inputValue(), '151.95');
+    assert.equal(await sheet().locator('.fc-field input[type="date"]').inputValue(), '2026-10-21');
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await tap(sheet().locator('.room-tile', { hasText: 'General' }));
+    await finishCards();
+    assert.equal(await sheet().locator('.sum-row').count(), 2);
+    await sheet().getByText('Items add up to the total').waitFor();
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await expectToast('Expense saved');
+    await tap(page.locator('.tab', { hasText: 'Home' }));
+    await page.locator('.tile', { hasText: 'Tools' }).locator('strong', { hasText: '$211' }).waitFor(); // drill $59 + laser $119 + tape $32.95
+    await shot('dashboard-reader');
   });
 
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);

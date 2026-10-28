@@ -4,6 +4,8 @@ import { addToInbox } from '../store.js';
 import { prepareFile } from '../images.js';
 import { openActions, pickFiles, toast, withBusy } from '../ui/kit.js';
 import { openExpenseForm } from './expense-form.js';
+import { reviewNewCapture } from './review.js';
+import { readerEnabled } from '../reader/queue.js';
 
 async function prepare(files) {
   if (!files.length) return null;
@@ -11,10 +13,12 @@ async function prepare(files) {
     () => Promise.all(files.map(prepareFile)));
 }
 
-/** Camera or file → fill in the details now. */
+/** Camera or file → read it and confirm with cards (or fill in the form if reading is off). */
 export async function captureThenFill(kind) {
   const prepared = await prepare(await pickFiles(kind, { multiple: kind === 'file' }));
-  if (prepared) openExpenseForm({ pendingFiles: prepared });
+  if (!prepared) return;
+  if (readerEnabled()) reviewNewCapture(prepared);
+  else openExpenseForm({ pendingFiles: prepared });
 }
 
 /** Camera or photo library → straight into the inbox, details later. */
@@ -24,7 +28,7 @@ export async function captureToInbox(kind = 'camera') {
   const undo = await withBusy('Saving…', () => addToInbox(prepared));
   if (!undo) return;
   const what = prepared.length > 1 ? `${prepared.length} receipts` : 'Receipt';
-  toast(`${what} saved to inbox`, {
+  toast(`${what} saved to inbox${readerEnabled() ? ' and being read' : ''}`, {
     actionLabel: 'Snap another',
     onAction: () => captureToInbox('camera'),
     duration: 7000,

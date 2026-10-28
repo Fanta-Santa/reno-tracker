@@ -184,10 +184,20 @@ function ExpenseForm({ initial, close }) {
     totalCents,
     gstMode: d.gstMode,
     gstCents: d.gstMode === 'custom' ? gstCents : null,
-    lines: d.split
-      ? d.lines.map((l) => ({ id: l.id, roomId: l.roomId, categoryId: l.categoryId, amountCents: parseMoney(l.amountText) ?? 0, isTool: l.isTool }))
-      : [{ id: d.lines[0].id, roomId: d.lines[0].roomId, categoryId: d.lines[0].categoryId, amountCents: totalCents ?? 0, isTool: d.lines[0].isTool }],
+    lines: (d.split ? d.lines : d.lines.slice(0, 1)).map((l) => {
+      const line = {
+        id: l.id,
+        roomId: l.roomId,
+        categoryId: l.categoryId,
+        amountCents: d.split ? parseMoney(l.amountText) ?? 0 : totalCents ?? 0,
+        isTool: l.isTool,
+      };
+      if (l.description?.trim()) line.description = l.description.trim();
+      if (l.auto) line.auto = true;
+      return line;
+    }),
     fileIds: d.files.map((f) => f.id),
+    scan: status === 'inbox' ? d.expense.scan : undefined, // the reader's findings are only needed until it's sorted
   });
 
   const persist = async (record, message) => {
@@ -325,7 +335,7 @@ function ExpenseForm({ initial, close }) {
       <button class="link-btn" onClick=${startSplit}><${Icon} name="split" size=${18} /> Split across rooms or categories</button>
     </div>` : html`<div class="form-group split ${errors.split ? 'has-error' : ''}">
       <div class="split-head">
-        <span class="field-label">Split ${formatMoney(totalCents ?? 0)}</span>
+        <span class="field-label">${d.lines.some((l) => l.description) ? 'Items' : 'Split'} ${formatMoney(totalCents ?? 0)}</span>
         <button class="link-btn small" onClick=${stopSplit}>Don’t split</button>
       </div>
       ${d.lines.map((l, i) => html`<div class="split-line" key=${l.id}>
@@ -339,6 +349,8 @@ function ExpenseForm({ initial, close }) {
           </div>
           <button class="icon-btn" onClick=${() => removeLine(l.id)} aria-label="Remove line"><${Icon} name="x" size=${18} /></button>
         </div>
+        <input class="split-desc" placeholder="Item (optional)" value=${l.description || ''} aria-label="Item"
+          onInput=${(e) => updateLine(l.id, { description: e.currentTarget.value, auto: false })} />
         <div class="split-selects">
           <select value=${l.roomId || ''} onChange=${(e) => updateLine(l.id, { roomId: e.currentTarget.value })} aria-label="Room">
             ${roomItems.map((r) => html`<option value=${r.value}>${r.emoji} ${r.label}</option>`)}
