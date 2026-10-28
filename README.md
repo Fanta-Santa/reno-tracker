@@ -41,12 +41,14 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah (your deck/outdoor area), plus a garage
   shed, garden, Hills Hoist and picket fence, softly lit at dusk by lamplit windows and porch and gate lamps.
   Whole-house stages (like Painting) float above as tags.
-- It starts closed up with the roof on, and a status at the top right shows the budget at a glance: ✓ on track,
-  ! at risk, or ‼ over budget. Tap the house (or the status) and the roof lifts off to show every room.
+- It starts closed up with the roof on: just your project's name, the house, and a status at the top right that
+  shows the budget at a glance (✓ on track, ! at risk, or ‼ over budget). Tap the house (or the status) and the roof
+  lifts off to show every room; drag the roof back down to close it up.
 - Every room shows its budget status with a badge: ✓ on track, ! nearly at budget (90%+), ‼ over budget.
   Tap a room to lift it and see what's been spent there, its top categories and recent receipts.
 - Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),
-  and charts: budget by room, tools vs everything else, spending by category, and spend over time.
+  payments coming up (quotes and bills with a due date), and charts: budget by room (each bar is that room's own
+  budget), tools vs everything else, spending by category, and a smooth spend-over-time line.
 
 ## Quotes (Stage 3)
 
@@ -62,6 +64,8 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - A quote can cover several categories (e.g. labour, equipment hire and freight): tap each one and type the amounts
   for the extras; the first one gets the rest. Add a missing category (like Freight) right there with ＋ New.
   Attached quotes with priced lines are split automatically. Payments are split across the categories in proportion.
+- Bills to pay go in the same way. Switch on "Payment due" to set when the next payment is due: it shows under
+  Payments coming up on the dashboard (overdue ‼, due within a week !) with the total due in the next 30 days.
 
 Coming next: CSV/Excel export, backup reminders, and the install guide for friends.
 

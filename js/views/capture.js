@@ -44,7 +44,7 @@ export function openAddMenu() {
       { label: 'Upload PDF or screenshot', icon: 'upload', onSelect: () => captureThenFill('file') },
       { label: 'Enter manually', icon: 'pencil', onSelect: () => openExpenseForm() },
       { label: 'Quick snap — sort later', icon: 'inbox', onSelect: () => captureToInbox('camera') },
-      { label: 'Add a quote', icon: 'quote', onSelect: () => openQuoteForm() },
+      { label: 'Add a quote or bill', icon: 'quote', onSelect: () => openQuoteForm() },
     ],
   });
 }

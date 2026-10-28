@@ -6,7 +6,7 @@ import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
 import { state, useStore, inboxExpenses, saveItem } from '../store.js';
 import { formatMoney, formatDate, daysBetween, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
-import { computeStats, spendOverTime } from '../stats.js';
+import { computeStats, spendOverTime, upcomingPayments } from '../stats.js';
 import { Page, Group, EmptyState, withBusy } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
@@ -16,6 +16,7 @@ import { openRoomEditor } from './editors.js';
 import { showExpensesWith } from './expenses.js';
 import { openAddMenu } from './capture.js';
 import { runBackup } from './settings.js';
+import { dueText } from './quotes.js';
 
 let remembered = null; // the selected room, kept while the app is open
 let rememberedOpen = false; // the house starts with its roof on
@@ -42,25 +43,39 @@ function StatusPill({ stats, onTap }) {
   </button>`;
 }
 
-/** The glass card under the house: the tapped room's spending, or a hint (and the status key once it's open). */
+/** Quotes and bills with a due date, soonest first, and what's due in the next 30 days (for cash flow). */
+function ComingUp({ upcoming }) {
+  const soon = upcoming.filter((u) => u.days <= 30).reduce((sum, u) => sum + u.amount, 0);
+  return html`<section class="glass-card due-card" aria-label="Payments coming up">
+    <h2 class="chart-title">Payments coming up</h2>
+    ${upcoming.slice(0, 4).map((u) => {
+      const due = dueText(u.days, u.dueDate);
+      return html`<button class="due-row" key=${u.quote.id} onClick=${() => navigate(`/quotes/${u.quote.id}`)}>
+        <span class="due-main">
+          <strong>${u.quote.supplier || u.quote.description || 'Quote'}</strong>
+          <span class="due-when s-${due.status}"><${StatusBadge} status=${due.status} />${due.text}</span>
+        </span>
+        <span class="due-amount">${formatMoney(u.amount)}</span>
+        <${Icon} name="chevronRight" size=${16} class="row-chevron" stroke=${2.2} />
+      </button>`;
+    })}
+    ${upcoming.length > 4 && html`<button class="link-btn small" onClick=${() => navigate('/quotes')}>${upcoming.length - 4} more in Quotes</button>`}
+    <div class="due-foot"><span>Due in the next 30 days</span><strong>${formatMoney(soon)}</strong></div>
+  </section>`;
+}
+
+/**
+ * Under the house: the tapped room's spending. Closed up, there's nothing (just the house); opened up, a one-line
+ * hint, plus a button only screen readers see, since the roof goes back on by dragging it down.
+ */
 function RoomCard({ row, onClose, open, onRoof }) {
   const ref = useRef();
   const id = row?.room.id;
   useEffect(() => { if (id) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [id]);
-  if (!row && !open) {
-    return html`<div class="glass-card room-card hint">
-      <p>Tap the house to look inside each room.</p>
-      <button class="pill-btn" onClick=${onRoof}><${Icon} name="house" size=${16} /> Look inside</button>
-    </div>`;
-  }
+  if (!row && !open) return null;
   if (!row) {
-    return html`<div class="glass-card room-card hint">
-      <p>Tap a room to see what you’ve spent there.</p>
-      <div class="status-key" aria-label="What the badges mean">
-        ${['ok', 'near', 'over'].map((s) => html`<span><${StatusBadge} status=${s} />${STATUS_TEXT[s]}</span>`)}
-      </div>
-      <button class="pill-btn" onClick=${onRoof}><${Icon} name="house" size=${16} /> Put the roof back on</button>
-    </div>`;
+    return html`<p class="house-caption">Tap a room to see its spending. Drag the roof down to close up.
+      <button class="sr-only" onClick=${onRoof}>Put the roof back on</button></p>`;
   }
   const { room, spent, budget, committed, status, count, byCategory } = row;
   const recent = state.expenses
@@ -144,6 +159,7 @@ export function DashboardView() {
   }));
   const categoryRows = stats.categories.filter((c) => c.cents > 0).map((c) => ({ id: c.category?.id, label: c.category?.name || 'Other', value: c.cents }));
   const totalOver = stats.budget > 0 && stats.spent + stats.committed > stats.budget;
+  const upcoming = useMemo(() => upcomingPayments(state.quotes, state.expenses, todayISO()), [state.quotes, state.expenses]);
 
   return html`<${Page} title=${state.project.name} class="dashboard"
     actions=${!open && (filed.length > 0 || stats.budget > 0) && html`<${StatusPill} stats=${stats} onTap=${() => setRoof(true)} />`}>
@@ -155,7 +171,7 @@ export function DashboardView() {
         </button>`)}
       </div>`}
       <${House} rooms=${activeRooms} stats=${statsByRoom} open=${open} onOpen=${(id) => (id ? select(id) : setRoof(true))}
-        selectedId=${selected} onSelect=${select} />
+        onClose=${() => setRoof(false)} selectedId=${selected} onSelect=${select} />
       <${RoomCard} row=${selectedRow} onClose=${() => select(null)} open=${open} onRoof=${() => setRoof(!open)} />
     </section>
 
@@ -189,6 +205,8 @@ export function DashboardView() {
       </div>
     </div>
 
+    ${upcoming.length > 0 && html`<${ComingUp} upcoming=${upcoming} />`}
+
     ${(inbox > 0 || missing > 0 || backupDue) && html`<${Group} title="To do">
       ${inbox > 0 && html`<button class="row tappable todo" onClick=${() => navigate('/inbox')}>
         <span class="row-icon" style="background:#007AFF"><${Icon} name="inbox" size=${18} /></span>
@@ -214,11 +232,11 @@ export function DashboardView() {
       : html`
       <section class="chart-card glass-card">
         <h2 class="chart-title">Budget by room or stage</h2>
-        <p class="chart-sub">Spent so far against each budget. Tap one to see its expenses.</p>
+        <p class="chart-sub">Each bar is that room’s own budget, so a full bar means it’s all used. Tap one to see its expenses.</p>
         <${BudgetBars} rows=${roomRows} onSelect=${(id) => showExpensesWith({ rooms: [id] })} />
         <div class="chart-legend">
           <span><span class="lg-swatch" style=${`background:${SERIES}`} />Spent</span>
-          <span><span class="lg-tick" />Budget</span>
+          <span><span class="lg-swatch budget" />Budget</span>
           ${roomRows.some((r) => r.status === 'over') && html`<span><span class="lg-swatch over" />Over budget</span>`}
           ${roomRows.some((r) => r.committed) && html`<span><span class="lg-swatch committed" />Accepted quotes</span>`}
         </div>

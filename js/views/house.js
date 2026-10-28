@@ -6,7 +6,7 @@
 // It starts closed up, with the roof on. Tap it and the roof lifts and the side wall fades, like a dollhouse, so you
 // can see into each room, its budget status and tap it.
 
-import { html } from '../lib.js';
+import { html, useEffect, useRef } from '../lib.js';
 import { roomType } from '../defaults.js';
 
 const S = 40; // pixels per unit
@@ -648,33 +648,109 @@ export function StatusBadge({ status, inline }) {
 
 /**
  * The house. rooms: active rooms. stats: Map roomId → { status, ... }.
- * open: roof off, rooms showing; onOpen(roomId?) opens it (and picks a room if one was tapped).
- * selectedId / onSelect(roomId | null): which part is lifted (only while open).
+ * open: roof off, rooms showing. onOpen(roomId?) opens it (and picks a room if one was tapped); onClose() when the
+ * roof is dragged back down onto the house. selectedId / onSelect(roomId | null): which part is lifted (only open).
  */
-export function House({ rooms, stats, open, onOpen, selectedId, onSelect }) {
+export function House({ rooms, stats, open, onOpen, onClose, selectedId, onSelect }) {
   const status = (id) => stats.get(id)?.status || 'none';
   const { parts, pins, viewBox, roofLift, openExtra } = buildHouse(rooms, status);
   const [vx, vy, vw, vh] = viewBox;
+  const houseRef = useRef();
+  const svgRef = useRef();
+  const roofRef = useRef();
+  const shellRef = useRef();
+  const draggedAt = useRef(0); // the click that follows a drag isn't a tap
+  const roofPart = parts.find((p) => p.layer === 'roof');
   const roomName = (id) => rooms.find((r) => r.id === id)?.name || '';
   const tapPart = (e, roomId) => {
     e.stopPropagation();
     if (!open) onOpen(roomId);
     else onSelect(roomId === selectedId ? null : roomId);
   };
-  const roofStyle = (selected) => (open ? `transform:translate(${roofLift[0]}px,${roofLift[1] - (selected ? 8 : 0)}px)` : '');
-  return html`<div class="house ${open ? 'open' : 'closed'} ${pins.length > 6 ? 'many' : ''}"
+  const roofSelected = open && roofPart.roomId && roofPart.roomId === selectedId;
+  const roofTransform = (t) => `translate(${r2(roofLift[0] * t)}px,${r2(roofLift[1] * t - (roofSelected ? 8 : 0))}px)`;
+
+  // Stop the page scrolling when a finger lands on the lifted roof, so it can be dragged.
+  useEffect(() => {
+    const g = roofRef.current;
+    if (!open || !g) return undefined;
+    const stop = (e) => e.preventDefault();
+    g.addEventListener('touchstart', stop, { passive: false });
+    return () => g.removeEventListener('touchstart', stop);
+  }, [open]);
+
+  /** Drag the lifted roof back down onto the house to close it up (past halfway). A tap still picks it. */
+  const dragRoof = (e) => {
+    if (!open || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.stopPropagation();
+    const g = roofRef.current;
+    const shell = shellRef.current;
+    const scale = svgRef.current.getBoundingClientRect().width / vw;
+    const [lx, ly] = roofLift;
+    const len2 = lx * lx + ly * ly;
+    const [sx, sy] = [e.clientX, e.clientY];
+    let t = 1;
+    let moved = false;
+    const move = (ev) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+      if (!moved) {
+        moved = true;
+        houseRef.current.classList.add('dragging');
+        g.style.transition = 'none';
+        if (shell) shell.style.transition = 'none';
+      }
+      const dx = (ev.clientX - sx) / scale;
+      const dy = (ev.clientY - sy) / scale;
+      t = Math.max(0, Math.min(1.1, 1 + (dx * lx + dy * ly) / len2)); // how far along the lift the finger has gone
+      g.style.transform = roofTransform(t);
+      if (shell) shell.style.opacity = String(Math.max(0, Math.min(1, (1 - t) * 1.6)));
+    };
+    const up = (ev) => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      houseRef.current.classList.remove('dragging');
+      g.style.transition = '';
+      draggedAt.current = Date.now();
+      if (!moved) {
+        if (ev.type === 'pointerup' && roofPart.roomId) onSelect(roofPart.roomId === selectedId ? null : roofPart.roomId);
+        return;
+      }
+      if (shell) shell.style.transition = '';
+      if (ev.type === 'pointerup' && t < 0.55) {
+        if (shell) shell.style.opacity = '1';
+        setTimeout(() => { if (shell) shell.style.opacity = ''; }, 600);
+        onClose();
+      } else {
+        g.style.transform = roofTransform(1); // spring back up
+        if (shell) shell.style.opacity = '';
+      }
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+  };
+
+  return html`<div class="house ${open ? 'open' : 'closed'} ${pins.length > 6 ? 'many' : ''}" ref=${houseRef}
     style=${`padding-top:${open ? (openExtra / vw) * 100 : 0}%`}>
     <div class="house-frame" style=${`aspect-ratio:${vw} / ${vh}`}>
-      <svg viewBox=${viewBox.join(' ')} class="house-svg ${open && selectedId ? 'has-selection' : ''}" role="img"
-        aria-label=${open ? 'Your house, opened up. Tap a room to see its spending.' : 'Your house. Tap it to look inside.'}
-        onClick=${(e) => { if (!open) onOpen(); else if (e.target === e.currentTarget) onSelect(null); }}>
+      <svg viewBox=${viewBox.join(' ')} class="house-svg ${open && selectedId ? 'has-selection' : ''}" role="img" ref=${svgRef}
+        aria-label=${open ? 'Your house, opened up. Tap a room to see its spending, or drag the roof back down to close it up.' : 'Your house. Tap it to look inside.'}
+        onClick=${(e) => {
+          if (Date.now() - draggedAt.current < 500) return; // already handled when the roof was let go
+          if (!open) onOpen();
+          else if (e.target === e.currentTarget) onSelect(null);
+        }}>
         <${Defs} />
         <g class="house-float">
           ${parts.map((p) => {
             const selected = open && p.roomId && p.roomId === selectedId;
-            return html`<g key=${p.id} class="house-part ${p.roomId ? 'tappable' : ''} ${selected ? 'selected' : ''} ${p.layer ? `layer-${p.layer}` : ''}"
-              style=${p.layer === 'roof' ? roofStyle(selected) : ''}
-              onClick=${p.roomId ? (e) => tapPart(e, p.roomId) : undefined}>
+            const isRoof = p.layer === 'roof';
+            return html`<g key=${p.id} ref=${isRoof ? roofRef : p.layer === 'shell' ? shellRef : undefined}
+              class="house-part ${p.roomId ? 'tappable' : ''} ${selected ? 'selected' : ''} ${p.layer ? `layer-${p.layer}` : ''}"
+              style=${isRoof && open ? `transform:${roofTransform(1)}` : ''}
+              onPointerDown=${isRoof ? dragRoof : undefined}
+              onClick=${isRoof ? undefined : p.roomId ? (e) => { if (Date.now() - draggedAt.current >= 500) tapPart(e, p.roomId); } : undefined}>
               ${p.shapes.map((sh, i) => html`<${Shape} key=${i} s=${sh} />`)}
             </g>`;
           })}

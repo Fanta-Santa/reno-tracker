@@ -328,6 +328,7 @@ export function blankQuote() {
     parts: null, // or [{ categoryId, amountCents }] when it covers several categories (the first is categoryId)
     status: 'quoted', // 'quoted' → 'accepted' → 'paid', or 'declined'
     date: todayISO(), // when the quote came in
+    dueDate: null, // when the next payment is due (optional), for the dashboard's "Payments coming up"
     notes: '',
     fileIds: [],
     createdAt: now,

@@ -1,8 +1,8 @@
 // Checks the dashboard numbers. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime } from '../js/stats.js';
-import { smoothPath } from '../js/ui/charts.js';
+import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime, upcomingPayments } from '../js/stats.js';
+import { smoothPath, smoothSeries } from '../js/ui/charts.js';
 
 const rooms = [
   { id: 'k', name: 'Kitchen', type: 'kitchen', budgetCents: 100000 },
@@ -121,4 +121,30 @@ test('quote parts: a breakdown by category, or the whole amount in one', () => {
   const parts = [{ categoryId: 'l', amountCents: 36500 }, { categoryId: 'h', amountCents: 12000 }, { categoryId: 'f', amountCents: 1500 }];
   assert.deepEqual(quoteParts({ categoryId: 'l', amountCents: 50000, parts }), parts);
   assert.deepEqual(quoteParts({ categoryId: 'l', amountCents: 50000, parts: [parts[0]] }), [{ categoryId: 'l', amountCents: 50000 }]);
+});
+
+test('the spend line is blurred smooth, but starts and ends at the real totals and never dips', () => {
+  const steps = [0, 0, 500, 500, 500, 4000, 4000, 4100, 4100, 9000, 9000, 9000];
+  const smooth = smoothSeries(steps, steps.length / 7);
+  assert.equal(smooth[0], 0);
+  assert.ok(Math.abs(smooth.at(-1) - 9000) < 1e-9);
+  for (let i = 1; i < smooth.length; i++) assert.ok(smooth[i] >= smooth[i - 1] - 1e-9, `dips at ${i}`);
+  const bumpiness = (v) => v.slice(2).reduce((sum, x, i) => sum + Math.abs(x - 2 * v[i + 1] + v[i]), 0);
+  assert.ok(bumpiness(smooth) < bumpiness(steps) / 2, 'much smoother than the steps');
+  assert.deepEqual(smoothSeries([5, 10], 2), [5, 10]); // too short to blur
+});
+
+test('payments coming up: unpaid quotes and bills with a due date, soonest first, with what is still owed', () => {
+  const q = (id, status, amountCents, dueDate) => ({ id, status, amountCents, dueDate });
+  const quotes = [
+    q('later', 'accepted', 100000, '2026-11-20'),
+    q('overdue', 'quoted', 25000, '2026-10-25'),
+    q('none', 'accepted', 50000, null), // no due date
+    q('paid', 'paid', 70000, '2026-11-01'),
+    q('declined', 'declined', 70000, '2026-11-01'),
+    q('covered', 'accepted', 30000, '2026-11-02'), // already paid in full
+  ];
+  const ex = [{ id: 'p', quoteId: 'later', status: 'filed', totalCents: 40000 }, { id: 'c', quoteId: 'covered', status: 'filed', totalCents: 30000 }];
+  const up = upcomingPayments(quotes, ex, '2026-10-28');
+  assert.deepEqual(up.map((u) => [u.quote.id, u.amount, u.days]), [['overdue', 25000, -3], ['later', 60000, 23]]);
 });

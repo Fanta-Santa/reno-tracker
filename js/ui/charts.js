@@ -24,14 +24,14 @@ export function compactMoney(cents) {
 
 /**
  * rows: [{ id, label, emoji, spent, committed, budget, status }]. onSelect(id) when a row is tapped.
- * Spent is blue; any part over budget is red; accepted quotes are light blue; the budget is a dark tick.
+ * Each bar is its own room's budget (the full length is 100% of it), whatever the other rooms' budgets are.
+ * Spent is blue, accepted quotes light blue; a room that's over budget is a full red bar.
  */
 export function BudgetBars({ rows, onSelect }) {
-  const max = Math.max(1, ...rows.map((r) => Math.max(r.spent + r.committed, r.budget || 0)));
   return html`<div class="bb">
     ${rows.map((r) => {
-      const within = r.budget ? Math.min(r.spent, r.budget) : r.spent;
-      const over = r.budget && r.spent > r.budget ? r.spent - r.budget : 0;
+      const isOver = r.budget > 0 && r.spent > r.budget;
+      const committed = r.budget ? Math.min(r.committed, Math.max(0, r.budget - r.spent)) : 0;
       let note;
       if (!r.budget) note = 'No budget set';
       else if (r.status === 'over') note = `Over by ${formatMoney(r.spent - r.budget, { whole: true })}`;
@@ -42,12 +42,10 @@ export function BudgetBars({ rows, onSelect }) {
           <span class="bb-name"><span aria-hidden="true">${r.emoji}</span> ${r.label}</span>
           <span class="bb-value">${formatMoney(r.spent, { whole: true })}${r.budget ? html`<small> of ${formatMoney(r.budget, { whole: true })}</small>` : ''}</span>
         </span>
-        <span class="bb-track">
-          <span class="bb-fill" style=${`width:${pct(within, max)}`} />
-          ${r.committed > 0 && html`<span class="bb-committed" style=${`left:calc(${pct(r.spent, max)} + 2px);width:${pct(r.committed, max)}`} />`}
-          ${over > 0 && html`<span class="bb-over" style=${`left:calc(${pct(r.budget, max)} + 2px);width:calc(${pct(over, max)} - 2px)`} />`}
-          ${r.budget > 0 && html`<span class="bb-budget" style=${`left:${pct(r.budget, max)}`} />`}
-        </span>
+        ${r.budget > 0 && html`<span class="bb-track">
+          <span class="bb-fill ${isOver ? 'over' : ''}" style=${`width:${pct(r.spent, r.budget)}`} />
+          ${committed > 0 && html`<span class="bb-committed" style=${`left:calc(${pct(r.spent, r.budget)} + 2px);width:max(0px, calc(${pct(committed, r.budget)} - 2px))`} />`}
+        </span>`}
         <span class="bb-note"><${StatusBadge} status=${r.status} />${note}${r.committed > 0 ? ` · ${formatMoney(r.committed, { whole: true })} in accepted quotes` : ''}</span>
       </button>`;
     })}
@@ -127,6 +125,25 @@ export function smoothPath(points) {
   return d;
 }
 
+/**
+ * Smooths a running total for drawing: a gentle blur (Gaussian) that still starts and ends at the real values and
+ * never goes down. sigma is how many points to blur across. The numbers you read stay the real ones.
+ */
+export function smoothSeries(values, sigma) {
+  const n = values.length;
+  if (n < 3 || sigma <= 0) return values.slice();
+  const reach = Math.ceil(sigma * 3);
+  const weights = [];
+  for (let k = -reach; k <= reach; k++) weights.push(Math.exp(-(k * k) / (2 * sigma * sigma)));
+  const total = weights.reduce((a, b) => a + b, 0);
+  const at = (i) => values[Math.max(0, Math.min(n - 1, i))]; // the ends carry on flat
+  const out = values.map((_, i) => weights.reduce((sum, w, j) => sum + w * at(i + j - reach), 0) / total);
+  // Blurring pulls the start up and the end down; a straight-line correction puts them back without any dips.
+  const a = values[0] - out[0];
+  const b = values[n - 1] - out[n - 1];
+  return out.map((v, i) => v + a + ((b - a) * i) / (n - 1));
+}
+
 function niceStep(max, ticks = 4) {
   const raw = max / ticks;
   const mag = 10 ** Math.floor(Math.log10(raw || 1));
@@ -170,7 +187,9 @@ export function SpendOverTime({ series, budget }) {
   const ih = height - m.t - m.b;
   const x = (i) => m.l + (pts.length === 1 ? iw / 2 : (i / (pts.length - 1)) * iw);
   const y = (v) => m.t + ih - (v / yMax) * ih;
-  const line = smoothPath(pts.map((p, i) => [x(i), y(p.cumulative)]));
+  // Drawn much smoother than the real steps; the dot and the labels give the real numbers.
+  const smooth = smoothSeries(pts.map((p) => p.cumulative), Math.max(0.9, pts.length / 7));
+  const line = smoothPath(smooth.map((v, i) => [x(i), y(v)]));
   const area = `${line} L${x(pts.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
   const ticks = [];
   for (let v = 0; v <= yMax + 1; v += step) ticks.push(v);
@@ -198,7 +217,7 @@ export function SpendOverTime({ series, budget }) {
       ${xLabels.map((i) => html`<text x=${x(i)} y=${height - 6} class="sot-tick"
         text-anchor=${i === 0 && pts.length > 1 ? 'start' : i === pts.length - 1 && pts.length > 1 ? 'end' : 'middle'}>${pts[i].label}</text>`)}
       ${h && html`<line x1=${x(hover)} x2=${x(hover)} y1=${m.t} y2=${y(0)} class="sot-cross" />`}
-      <circle cx=${x(h ? hover : pts.length - 1)} cy=${y(h ? h.cumulative : last)} r="4" fill=${SERIES} stroke="#fff" stroke-width="2" />
+      <circle cx=${x(h ? hover : pts.length - 1)} cy=${y(h ? smooth[hover] : last)} r="4" fill=${SERIES} stroke="#fff" stroke-width="2" />
     </svg>
     ${h ? html`<div class="sot-tip" style=${`left:${Math.min(Math.max(x(hover), 70), width - 70)}px`}>
         <strong>${formatMoney(h.cumulative, { whole: true })}</strong>
