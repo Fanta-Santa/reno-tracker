@@ -90,6 +90,43 @@ export function SplitBar({ parts }) {
 
 // ---------- Spend over time ----------
 
+/**
+ * A smooth curve through the points (monotone cubic, Fritsch–Carlson). Unlike ordinary smoothing it never
+ * overshoots, so a running total never appears to dip or to rise above its real value between points.
+ */
+export function smoothPath(points) {
+  const n = points.length;
+  if (n < 3) return points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const dx = [];
+  const slope = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(points[i + 1][0] - points[i][0]);
+    slope.push((points[i + 1][1] - points[i][1]) / (dx[i] || 1));
+  }
+  const m = [slope[0]];
+  for (let i = 1; i < n - 1; i++) m.push(slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2);
+  m.push(slope[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+    const a = m[i] / slope[i];
+    const b = m[i + 1] / slope[i];
+    const h = a * a + b * b;
+    if (h > 9) {
+      const t = 3 / Math.sqrt(h);
+      m[i] = t * a * slope[i];
+      m[i + 1] = t * b * slope[i];
+    }
+  }
+  let d = `M${points[0][0].toFixed(1)},${points[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const [x0, y0] = points[i];
+    const [x1, y1] = points[i + 1];
+    const h = dx[i] / 3;
+    d += ` C${(x0 + h).toFixed(1)},${(y0 + m[i] * h).toFixed(1)} ${(x1 - h).toFixed(1)},${(y1 - m[i + 1] * h).toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  }
+  return d;
+}
+
 function niceStep(max, ticks = 4) {
   const raw = max / ticks;
   const mag = 10 ** Math.floor(Math.log10(raw || 1));
@@ -133,7 +170,7 @@ export function SpendOverTime({ series, budget }) {
   const ih = height - m.t - m.b;
   const x = (i) => m.l + (pts.length === 1 ? iw / 2 : (i / (pts.length - 1)) * iw);
   const y = (v) => m.t + ih - (v / yMax) * ih;
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.cumulative).toFixed(1)}`).join(' ');
+  const line = smoothPath(pts.map((p, i) => [x(i), y(p.cumulative)]));
   const area = `${line} L${x(pts.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
   const ticks = [];
   for (let v = 0; v <= yMax + 1; v += step) ticks.push(v);

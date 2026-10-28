@@ -36,9 +36,10 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 
 ## Dashboard (Stage 2)
 
-- An illustrated house on a floating island, built from your rooms: kitchen, bathroom, bedroom, living, laundry
-  and other rooms become open-fronted rooms on one or more floors; a garage, deck and garden sit beside them; the
-  roof is your roof/exterior work. Whole-house stages (like Painting) float above as tags.
+- An illustrated early-1900s Australian cottage on a floating island, built from your rooms: always single-storey,
+  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a red
+  corrugated-iron bullnose verandah (your deck/outdoor area) and a floating hipped roof (your roof/exterior work),
+  plus a garage shed, garden, Hills Hoist and picket fence. Whole-house stages (like Painting) float above as tags.
 - Every room shows its budget status with a badge: ✓ on track, ! nearly at budget (90%+), ‼ over budget.
   Tap a room to lift it and see what's been spent there, its top categories and recent receipts.
 - Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),

@@ -1,4 +1,14 @@
-/* Reno Tracker — clean, iOS-style look: system font, frosted glass, big rounded cards, springy motion. */
+/* Reno Tracker — clean, iOS-style look: Aptos-style type, frosted glass cards, springy motion. */
+
+/* Aptos is used where a device has it (e.g. computers with Microsoft Office). Everywhere else, including
+   iPhones, the app uses Albert Sans, a free (SIL Open Font License) font that's a close match. */
+@font-face {
+  font-family: "Albert Sans";
+  src: url("../vendor/fonts/albert-sans.woff2") format("woff2-variations"), url("../vendor/fonts/albert-sans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --bg: #f2f2f7;
@@ -34,8 +44,14 @@
   --shadow-float: 0 10px 30px rgba(16, 16, 20, 0.14), 0 2px 6px rgba(16, 16, 20, 0.06);
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
 
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font: "Aptos", "Albert Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-round: var(--font);
+
+  /* Glass cards: slightly see-through, with the page's soft colours blurred behind them */
+  --card: rgba(255, 255, 255, 0.62);
+  --card-border: rgba(255, 255, 255, 0.75);
+  --card-blur: saturate(180%) blur(22px);
+  --card-press: rgba(118, 118, 128, 0.1);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -63,6 +79,16 @@ body {
   background: linear-gradient(180deg, var(--statusbar) 0, var(--bg-tint) 150px, var(--bg) 420px) no-repeat, var(--bg);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+}
+
+/* Soft colour washes behind everything, so the glass cards have something to blur. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42% 26% at 92% 30%, rgba(255, 190, 150, 0.32), transparent 70%),
+    radial-gradient(48% 30% at 4% 58%, rgba(120, 190, 255, 0.28), transparent 70%),
+    radial-gradient(44% 28% at 88% 86%, rgba(150, 225, 190, 0.28), transparent 70%),
+    radial-gradient(36% 22% at 30% 98%, rgba(200, 170, 255, 0.22), transparent 70%);
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -139,18 +165,19 @@ small { font-size: 13px; }
   color: var(--text-2); padding: 0 16px 7px;
 }
 .group-card, .list-card {
-  background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card);
+  background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  border: 0.5px solid var(--card-border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card);
 }
 .group-footer { color: var(--text-2); font-size: 13px; padding: 7px 16px 0; line-height: 1.4; }
 
 .row {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px;
-  padding: 10px 16px; text-align: left; position: relative; background: var(--surface);
+  padding: 10px 16px; text-align: left; position: relative; background: transparent;
 }
 .row + .row::before, .list-card > * + .row::before {
   content: ""; position: absolute; top: 0; right: 0; left: 60px; height: 0.5px; background: var(--separator);
 }
-.row.tappable:active { background: var(--surface-2); }
+.row.tappable:active { background: var(--card-press); }
 .row-icon {
   width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
   color: #fff; flex: none; font-size: 17px;
@@ -175,7 +202,8 @@ small { font-size: 13px; }
 
 .callout {
   display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px;
-  border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-card); font-size: 15px;
+  border-radius: var(--radius-md); background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  box-shadow: var(--shadow-card); font-size: 15px;
 }
 .callout.warn { background: #fff6e5; color: #6b4300; }
 .callout .icon { color: var(--amber); margin-top: 1px; }
@@ -373,19 +401,22 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 /* ---------- Swipe rows ---------- */
 
 .swipe-row { position: relative; overflow: hidden; }
-.swipe-actions { position: absolute; top: 0; bottom: 0; right: 0; display: flex; }
+.swipe-actions { position: absolute; top: 0; bottom: 0; right: 0; display: flex; visibility: hidden; }
+.swipe-row.is-swiped .swipe-actions { visibility: visible; }
 .swipe-action {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   color: #fff; font-size: 13px; font-weight: 600; background: var(--accent);
 }
 .swipe-action.danger { background: var(--red); }
-.swipe-content { position: relative; background: var(--surface); touch-action: pan-y; }
+.swipe-content { position: relative; background: transparent; touch-action: pan-y; }
+.swipe-row.is-swiped .swipe-content { background: #fff; }
 
 /* ---------- Expenses list ---------- */
 
 .inbox-banner {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px;
-  background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); color: var(--accent);
+  background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  border: 0.5px solid var(--card-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); color: var(--accent);
 }
 .inbox-banner-icon {
   width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff;
@@ -415,7 +446,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 .list-heading {
   display: flex; justify-content: space-between; padding: 14px 16px 6px; font-size: 13px; font-weight: 600;
-  color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface-2);
+  color: var(--text-2); text-transform: uppercase; letter-spacing: 0.04em; background: rgba(255, 255, 255, 0.35);
   font-variant-numeric: tabular-nums;
 }
 .list-card > .list-heading:first-child { padding-top: 12px; }
@@ -424,7 +455,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .swipe-row + .swipe-row .expense-row::before {
   content: ""; position: absolute; top: 0; right: 0; left: 74px; height: 0.5px; background: var(--separator);
 }
-.swipe-content:active .expense-row { background: var(--surface-2); }
+.swipe-content:active .expense-row { background: var(--card-press); }
 .expense-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .expense-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .expense-sub { color: var(--text-2); font-size: 14px; display: flex; gap: 6px; min-width: 0; }
@@ -447,7 +478,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 .inbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .inbox-tile {
-  display: flex; flex-direction: column; background: var(--surface); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  border: 0.5px solid var(--card-border); border-radius: var(--radius-lg);
   overflow: hidden; box-shadow: var(--shadow-card); text-align: left; transition: transform 0.15s;
 }
 .inbox-tile:active { transform: scale(0.97); }
@@ -478,7 +510,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form-group {
-  background: var(--surface); border-radius: var(--radius-lg); padding: 14px 16px;
+  background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  border: 0.5px solid var(--card-border); border-radius: var(--radius-lg); padding: 14px 16px;
   display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-card);
 }
 .form-group.has-error, .amount-card.has-error { box-shadow: 0 0 0 2px var(--red); }
@@ -531,7 +564,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 }
 
 /* Big amount */
-.amount-card { background: var(--surface); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; }
+.amount-card { background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur); border: 0.5px solid var(--card-border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; }
 .amount-label { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.03em; text-align: center; }
 .amount-input { display: flex; align-items: center; justify-content: center; gap: 2px; font-family: var(--font-round); }
 .amount-input span { font-size: 34px; font-weight: 700; color: var(--text-3); }
@@ -611,8 +644,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .meter.small { height: 6px; }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.78); -webkit-backdrop-filter: saturate(180%) blur(22px); backdrop-filter: saturate(180%) blur(22px);
-  border: 0.5px solid rgba(255, 255, 255, 0.9); border-radius: var(--radius-lg);
+  background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+  border: 0.5px solid var(--card-border); border-radius: var(--radius-lg);
   box-shadow: 0 8px 26px rgba(30, 50, 110, 0.08), 0 1px 2px rgba(16, 16, 20, 0.04);
 }
 .neg { color: #d03b3b; }
@@ -1026,6 +1059,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 }
 .house-pin.selected { transform: translate(-50%, calc(-100% - 10px)) scale(1.12); box-shadow: 0 10px 22px rgba(30, 50, 110, 0.28), 0 0 0 2.5px var(--accent); }
 .house-pin.dim { opacity: 0.45; }
+.house.many .house-pin { width: 29px; height: 29px; font-size: 14px; }
+.house.many .status-badge { min-width: 16px; height: 16px; font-size: 10px; top: -5px; right: -6px; }
 @keyframes pin-in { from { opacity: 0; transform: translate(-50%, -60%) scale(0.6); } }
 .status-badge {
   position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px;

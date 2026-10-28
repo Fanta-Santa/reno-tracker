@@ -385,6 +385,7 @@ export function SwipeRow({ actions, onTap, children, class: cls = '' }) {
     const el = content.current;
     el.style.transition = animate ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
     el.style.transform = x ? `translateX(${x}px)` : '';
+    el.parentElement.classList.toggle('is-swiped', !!x); // the Delete button only shows while swiped
   };
 
   const onPointerDown = (e) => {
