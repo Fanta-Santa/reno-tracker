@@ -45,7 +45,19 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),
   and charts: budget by room, tools vs everything else, spending by category, and spend over time.
 
-Coming next: quotes (quoted → accepted → paid), CSV/Excel export, and the install guide for friends.
+## Quotes (Stage 3)
+
+- Log a quote from a tradie or supplier (amount, room/stage, category, notes, and the quote itself as a photo or PDF,
+  read on the phone to fill in the blanks). Add one from the Quotes tab or the ＋ button.
+- One tap moves a quote between Quoted · Accepted · Paid. Swipe a quote left for the next step (a long swipe does it
+  straight away), or to decline it. Declined quotes are tucked away and can be restored.
+- Accepted quotes count as committed on the dashboard (tap the Committed tile to see them) until they're paid.
+- Record a deposit or progress payment with Add payment. Tapping Paid opens the final payment, filled in with
+  what's left to pay. Each payment is a normal expense, tagged "Quote" and linked back to its quote.
+- Quoted vs actual: paid quotes show ▲ over or ▼ under the quote, in dollars and %.
+- Undo takes back a payment and the status change it caused, together.
+
+Coming next: CSV/Excel export, backup reminders, and the install guide for friends.
 
 ## How it's built
 
@@ -62,7 +74,7 @@ Plain HTML, CSS and JavaScript with no build step. Opening `index.html` through 
 | `js/backup.js`, `js/zip.js` | Backup and restore as one .zip file |
 | `js/ui/` | Shared pieces: sheets, Undo bar, switches, receipt viewer |
 | `js/reader/` | Receipt reading: text from photos/PDFs (`ocr.js`), making sense of it (`parse.js`), category suggestions (`categorize.js`), background reading (`queue.js`) |
-| `js/views/` | The screens (`review.js` is the confirmation cards) |
+| `js/views/` | The screens (`review.js` is the confirmation cards, `quotes.js` the Quotes tab) |
 | `sw.js` | Keeps the app working offline and delivers updates |
 | `vendor/` | Small third-party libraries, copied in (see `vendor/README.md`) |
 

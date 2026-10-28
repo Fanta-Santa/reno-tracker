@@ -1,9 +1,10 @@
-// The ＋ button: snap, upload, type in, or quick-snap into the inbox.
+// The ＋ button: snap, upload, type in, quick-snap into the inbox, or log a quote.
 
 import { addToInbox } from '../store.js';
 import { prepareFile } from '../images.js';
 import { openActions, pickFiles, toast, withBusy } from '../ui/kit.js';
 import { openExpenseForm } from './expense-form.js';
+import { openQuoteForm } from './quotes.js';
 import { reviewNewCapture } from './review.js';
 import { readerEnabled } from '../reader/queue.js';
 
@@ -37,12 +38,13 @@ export async function captureToInbox(kind = 'camera') {
 
 export function openAddMenu() {
   openActions({
-    title: 'Add an expense',
+    title: 'Add',
     actions: [
       { label: 'Snap a receipt', icon: 'camera', onSelect: () => captureThenFill('camera') },
       { label: 'Upload PDF or screenshot', icon: 'upload', onSelect: () => captureThenFill('file') },
       { label: 'Enter manually', icon: 'pencil', onSelect: () => openExpenseForm() },
       { label: 'Quick snap — sort later', icon: 'inbox', onSelect: () => captureToInbox('camera') },
+      { label: 'Add a quote', icon: 'quote', onSelect: () => openQuoteForm() },
     ],
   });
 }

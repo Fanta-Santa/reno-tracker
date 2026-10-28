@@ -143,7 +143,7 @@ export function DashboardView() {
       </div>
       <div class="kpi-tiles">
         <div class="kpi-tile"><span class="kpi-label">Budget</span><strong>${stats.budget ? formatMoney(stats.budget, { whole: true }) : '—'}</strong></div>
-        <div class="kpi-tile"><span class="kpi-label">Committed</span><strong>${formatMoney(stats.committed, { whole: true })}</strong><small>accepted quotes</small></div>
+        <button class="kpi-tile tappable" onClick=${() => navigate('/quotes')}><span class="kpi-label">Committed</span><strong>${formatMoney(stats.committed, { whole: true })}</strong><small>accepted quotes ›</small></button>
         <div class="kpi-tile"><span class="kpi-label">${totalOver ? 'Over by' : 'Remaining'}</span>
           <strong class=${totalOver ? 'neg' : ''}>${stats.budget ? formatMoney(Math.abs(stats.remaining), { whole: true }) : '—'}</strong>
           ${!stats.budget && html`<small>set room budgets</small>`}</div>
@@ -205,12 +205,5 @@ export function DashboardView() {
         <p class="chart-sub">Running total${series.unit === 'week' ? ', week by week' : series.unit === 'month' ? ', month by month' : ''}. Drag across the chart to read it.</p>
         <${SpendOverTime} series=${series} budget=${stats.budget} />
       </section>`}
-  <//>`;
-}
-
-export function QuotesView() {
-  return html`<${Page} title="Quotes">
-    <${EmptyState} emoji="📝" title="Quotes are coming soon"
-      text="In the next few updates you’ll be able to log quotes, flick them between Quoted, Accepted and Paid, and compare quoted vs actual." />
   <//>`;
 }

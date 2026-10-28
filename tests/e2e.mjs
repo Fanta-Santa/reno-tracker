@@ -119,7 +119,7 @@ try {
 
   await check('manual expense with GST and smart defaults', async () => {
     await tap(await addMenu('Enter manually'));
-    await page.getByText('New expense').waitFor();
+    await sheet().getByText('New expense').waitFor();
     await sheet().locator('#amount').fill('84.5');
     await tap(sheet().locator('.chip', { hasText: 'Bunnings' }));
     await sheet().getByPlaceholder('e.g. Screws, timber, sander').fill('Screws and timber');
@@ -167,7 +167,7 @@ try {
     await tap(sheet().getByRole('button', { name: 'Cancel' }));
     await expectToast('Draft discarded');
     await tap(page.locator('.toast-action'));
-    await page.getByText('New expense').waitFor();
+    await sheet().getByText('New expense').waitFor();
     assert.equal(await sheet().locator('#amount').inputValue(), '84.50');
     await tap(sheet().getByRole('button', { name: 'Cancel' }));
     await page.waitForTimeout(400);
@@ -471,7 +471,7 @@ try {
     await tap(page.locator('.action-cancel'));
     await page.waitForTimeout(400);
     await tap(sheet().getByRole('button', { name: 'Edit all', exact: true }));
-    await page.getByText('New expense').waitFor();
+    await sheet().getByText('New expense').waitFor();
     await sheet().locator('.split-desc').nth(2).waitFor();
     assert.equal(await sheet().locator('.split-desc').count(), 3);
     assert.equal(await sheet().locator('.split-desc').nth(2).inputValue(), 'Delivery');
@@ -557,6 +557,110 @@ try {
     assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Kennards Hire');
     await tap(sheet().getByRole('button', { name: 'Cancel' }));
     await expectToast('Receipt not saved');
+  });
+
+  // ---------- Quotes ----------
+
+  const swipeLeft = async (locator, distance) => {
+    await page.locator('.sheet-layer').waitFor({ state: 'detached' }); // let the last sheet finish closing
+    const box = await locator.boundingBox();
+    const y = box.y + 30;
+    await page.mouse.move(box.x + box.width - 20, y);
+    await page.mouse.down();
+    for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + box.width - 20 - (i * distance) / 10, y);
+    await page.mouse.up();
+    await page.waitForTimeout(450);
+  };
+  const quoteCard = (name) => page.locator('.q-card', { hasText: name });
+
+  await check('add a quote, accept it with one tap, and it counts as committed', async () => {
+    await tap(page.locator('.tab', { hasText: 'Quotes' }));
+    await page.getByText('No quotes yet').waitFor();
+    await tap(await addMenu('Add a quote'));
+    await sheet().locator('#quote-amount').fill('1000');
+    await sheet().getByPlaceholder('e.g. Pete\'s Plumbing').fill('Pete’s Plumbing');
+    await sheet().getByPlaceholder('e.g. Rough-in and fit-off plumbing').fill('Rough-in and fit-off');
+    await tap(sheet().locator('.chip', { hasText: 'Bathroom' }));
+    await shot('quote-form');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Quote added');
+    await quoteCard('Pete’s Plumbing').waitFor();
+    await tap(quoteCard('Pete’s Plumbing').getByRole('tab', { name: 'Accepted' }));
+    await expectToast('Pete’s Plumbing: accepted');
+    await page.locator('.q-summary > div', { hasText: 'Still to pay' }).filter({ hasText: '$1,000' }).waitFor();
+    await shot('quotes');
+    await tap(page.locator('.tab', { hasText: 'Home' }));
+    await page.locator('.kpi-tile', { hasText: 'Committed' }).filter({ hasText: '$1,000' }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await shot('dashboard-committed');
+    await tap(page.locator('.kpi-tile', { hasText: 'Committed' }).filter({ hasText: '$1,000' }));
+    await quoteCard('Pete’s Plumbing').waitFor(); // the Committed tile opens Quotes
+  });
+
+  await check('record a deposit, then the final payment (a bit over the quote), with undo', async () => {
+    await tap(quoteCard('Pete’s Plumbing').locator('.q-main'));
+    await tap(page.getByRole('button', { name: 'Add payment' }));
+    await sheet().locator('.sheet-title', { hasText: 'Record a payment' }).waitFor();
+    assert.equal(await sheet().getByPlaceholder('e.g. Bunnings').inputValue(), 'Pete’s Plumbing');
+    await sheet().locator('#amount').fill('300');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Payment saved');
+    await page.locator('.q-pay-row', { hasText: 'Still to pay' }).filter({ hasText: '$700.00' }).waitFor();
+    await shot('quote-deposit');
+
+    // Tapping Paid with money still owed asks for the final payment, filled in with what's left.
+    await tap(page.getByRole('tab', { name: 'Paid' }));
+    await sheet().locator('.sheet-title', { hasText: 'Final payment' }).waitFor();
+    assert.equal(await sheet().locator('#amount').inputValue(), '700.00');
+    await sheet().locator('#amount').fill('750');
+    await shot('final-payment');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await page.getByText('▲ $50 over the quote (5%)').waitFor();
+    assert.equal(await page.locator('.q-toggle button.active').textContent(), 'Paid');
+    await shot('quote-paid');
+
+    // Undo takes back the payment and the status change together.
+    await tap(page.locator('.toast-action'));
+    await page.locator('.q-pay-row', { hasText: 'Still to pay' }).filter({ hasText: '$700.00' }).waitFor();
+    assert.equal(await page.locator('.q-toggle button.active').textContent(), 'Accepted');
+
+    await tap(page.getByRole('button', { name: 'Final payment' }));
+    await sheet().locator('#amount').fill('750');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await page.getByText('▲ $50 over the quote (5%)').waitFor();
+    assert.equal(await page.locator('.group').filter({ has: page.locator('.group-title', { hasText: 'Payments' }) }).locator('.row').count(), 2);
+
+    // Each payment is an ordinary expense, tagged and linked back to its quote.
+    await tap(page.locator('.row', { hasText: 'final payment' }));
+    await tap(page.locator('.row', { hasText: 'Paid against quote' }));
+    await page.locator('.q-pay').waitFor();
+    await tap(page.locator('.tab', { hasText: 'Expenses' }));
+    await page.locator('.expense-row .tag.quote').nth(1).waitFor();
+    assert.equal(await page.locator('.expense-row .tag.quote').count(), 2);
+    await tap(page.locator('.tab', { hasText: 'Quotes' }));
+    await page.locator('.q-summary > div', { hasText: 'Paid on quotes' }).filter({ hasText: '$1,050' }).waitFor();
+    await page.locator('.q-summary > div', { hasText: 'Still to pay' }).filter({ hasText: '$0' }).waitFor();
+  });
+
+  await check('swipe a quote all the way to accept it; swipe part-way to decline it, then restore', async () => {
+    await tap(page.locator('.nav-icon-btn[aria-label="Add a quote"]'));
+    await sheet().locator('#quote-amount').fill('2400');
+    await sheet().getByPlaceholder('e.g. Pete\'s Plumbing').fill('Bright Sparks');
+    await sheet().getByPlaceholder('e.g. Rough-in and fit-off plumbing').fill('Kitchen lights and power');
+    await tap(sheet().locator('.chip', { hasText: 'Kitchen' }));
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await expectToast('Quote added');
+
+    await swipeLeft(quoteCard('Bright Sparks'), 300); // a long swipe does the first action: Accept
+    await expectToast('Bright Sparks: accepted');
+    await page.locator('.group', { hasText: 'Accepted' }).locator('.q-card', { hasText: 'Bright Sparks' }).waitFor();
+
+    await swipeLeft(quoteCard('Bright Sparks'), 120);
+    await shot('quote-swipe');
+    await tap(page.locator('.swipe-row.is-swiped .swipe-action', { hasText: 'Decline' }));
+    await expectToast('Bright Sparks: declined');
+    await tap(page.getByRole('button', { name: 'Show 1 declined' }));
+    await tap(quoteCard('Bright Sparks').getByRole('button', { name: 'Restore' }));
+    await page.locator('.group', { hasText: 'Waiting on you' }).locator('.q-card', { hasText: 'Bright Sparks' }).waitFor();
   });
 
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);

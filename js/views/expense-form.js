@@ -64,8 +64,9 @@ function draftFrom(expense, pendingFiles = []) {
  *  - { pendingFiles }   new expense with photos/PDFs already picked
  *  - { draft }          reopen a discarded draft (Undo)
  */
-export function openExpenseForm({ expense, pendingFiles = [], draft } = {}) {
-  const initial = draft || draftFrom(expense || blankExpense(), pendingFiles);
+export function openExpenseForm({ expense, pendingFiles = [], draft, title, onSaved } = {}) {
+  // title / onSaved(record) → undo: used when recording a payment against a quote.
+  const initial = draft || { ...draftFrom(expense || blankExpense(), pendingFiles), title, onSaved };
   openSheet(({ close }) => html`<${ExpenseForm} initial=${initial} close=${close} />`, { full: true, dismissible: false });
 }
 
@@ -83,7 +84,7 @@ function ExpenseForm({ initial, close }) {
   const existing = state.expenses.find((e) => e.id === d.expense.id);
   const isInbox = existing?.status === 'inbox';
   const isNew = !existing;
-  const title = isInbox ? 'Sort receipt' : isNew ? 'New expense' : 'Edit expense';
+  const title = d.title || (isInbox ? 'Sort receipt' : isNew ? 'New expense' : 'Edit expense');
 
   const totalCents = parseMoney(d.amountText);
   const gstCents = d.gstMode === 'custom'
@@ -208,7 +209,11 @@ function ExpenseForm({ initial, close }) {
     }));
     if (!undo) return;
     close();
-    toastUndo(message, undo);
+    const alsoUndo = await d.onSaved?.(record); // e.g. marks a quote as paid
+    toastUndo(d.onSaved ? 'Payment saved' : message, async () => {
+      if (alsoUndo) await alsoUndo();
+      await undo();
+    });
   };
 
   const save = async () => {

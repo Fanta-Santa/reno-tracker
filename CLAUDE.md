@@ -29,6 +29,10 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 - Charts (`js/ui/charts.js`): spending is #2a78d6, tools #eb6834 (pair validated for colour blindness); one axis only.
   Lines are smoothed with `smoothPath()` (monotone cubic, never overshoots).
 - Screens that read the store use `useStore()`, which catches up on changes made before it subscribed.
+- Quotes (`js/views/quotes.js`): status 'quoted' | 'accepted' | 'paid' | 'declined'. Payments are ordinary expenses
+  with `quoteId`; `quoteProgress()` in `js/stats.js` works out paid / still owed / quoted vs actual. Committed =
+  accepted quotes less what's been paid against them. Choosing Paid with money owed opens the final payment form;
+  the form's `onSaved` hook updates the quote and its undo is folded into the payment's Undo.
 - Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
   `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.

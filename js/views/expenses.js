@@ -181,6 +181,7 @@ function ExpenseRow({ e, shownCents }) {
         </div>
         <div class="expense-tags">
           ${e.lines.some((l) => l.isTool) && html`<span class="tag tool"><${Icon} name="wrench" size=${12} stroke=${2.2} />Tool</span>`}
+          ${e.quoteId && html`<span class="tag quote"><${Icon} name="quote" size=${12} stroke=${2.2} />Quote</span>`}
           ${!e.fileIds.length && html`<span class="tag warn">No receipt</span>`}
         </div>
       </div>
@@ -338,6 +339,7 @@ export function ExpenseDetailView({ id }) {
     <//>`;
   }
 
+  const quote = e.quoteId && state.quotes.find((q) => q.id === e.quoteId);
   const addReceipt = async (kind) => {
     const picked = await pickFiles(kind, { multiple: kind !== 'camera' });
     if (!picked.length) return;
@@ -372,6 +374,9 @@ export function ExpenseDetailView({ id }) {
     <${Group}>
       <${Row} icon="store" iconBg="#FF9500" label="Store" detail=${e.store || '—'} />
       ${e.description && html`<${Row} icon="tag" iconBg="#5856D6" label="Item" detail=${e.description} />`}
+      ${quote && html`<${Row} icon="quote" iconBg="#8E8E93" label="Paid against quote"
+        detail=${`${quote.supplier || quote.description || 'Quote'} · ${formatMoney(quote.amountCents, { whole: true })}`}
+        onClick=${() => navigate(`/quotes/${quote.id}`)} />`}
     <//>
 
     <${Group} title=${e.lines.some((l) => l.description) ? 'Items' : e.lines.length > 1 ? 'Split' : 'Room & category'}>
