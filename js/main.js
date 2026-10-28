@@ -5,6 +5,7 @@ import { loadAll, useStore, inboxExpenses } from './store.js';
 import { useRoute, navigate } from './ui/router.js';
 import { SheetHost, ToastHost, BusyHost, toast } from './ui/kit.js';
 import { ViewerHost } from './ui/viewer.js';
+import { CameraHost } from './ui/camera.js';
 import { Icon } from './ui/icons.js';
 import { DashboardView, QuotesView } from './views/dashboard.js';
 import { ExpensesView, ExpenseDetailView, InboxView } from './views/expenses.js';
@@ -67,7 +68,7 @@ function App() {
     }
   }, [path]);
 
-  const overlays = html`<${SheetHost} /><${ViewerHost} /><${ToastHost} /><${BusyHost} />`;
+  const overlays = html`<${SheetHost} /><${ViewerHost} /><${CameraHost} /><${ToastHost} /><${BusyHost} />`;
   if (!s.loaded) return html`<div class="splash"><span class="spinner" /></div>`;
   if (!s.project) return html`<div class="app"><${SetupView} />${overlays}</div>`;
 

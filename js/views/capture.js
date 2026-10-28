@@ -21,9 +21,9 @@ export async function captureThenFill(kind) {
   else openExpenseForm({ pendingFiles: prepared });
 }
 
-/** Camera or photo library → straight into the inbox, details later. */
+/** Camera or photo library → straight into the inbox, details later. The app's camera can take several in a row. */
 export async function captureToInbox(kind = 'camera') {
-  const prepared = await prepare(await pickFiles(kind, { multiple: kind !== 'camera' }));
+  const prepared = await prepare(await pickFiles(kind, { multiple: true }));
   if (!prepared) return;
   const undo = await withBusy('Saving…', () => addToInbox(prepared));
   if (!undo) return;

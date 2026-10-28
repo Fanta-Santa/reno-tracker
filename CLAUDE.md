@@ -22,7 +22,10 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
   `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.
 - Expense lines may carry `description` (a receipt item). Lines marked `auto` were made up by the app (e.g. the
-  unmatched remainder) and are not learned from.
+  unmatched remainder) and are not learned from; an `auto` line may carry `unmatched` (receipt text lines it covers).
+- `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
+  `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap.
+- The top of the page matches the light grey (`--statusbar`, #fbfbfb) iOS draws behind the clock in Home Screen apps.
 
 ## Checks before pushing
 

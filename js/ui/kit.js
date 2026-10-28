@@ -4,6 +4,7 @@ import { html, useEffect, useRef, useState } from '../lib.js';
 import { Icon } from './icons.js';
 import { goBack } from './router.js';
 import { thumbUrl, cachedThumbUrl } from '../store.js';
+import { openCamera, useAppCamera } from './camera.js';
 
 // ---------- Tiny pub/sub for the overlays below ----------
 
@@ -225,7 +226,7 @@ export function SheetHost() {
     const open = list.some((s) => !s.closing);
     document.documentElement.classList.toggle('sheet-open', open);
     // Dim the status bar along with the page behind a sheet (where iOS supports it).
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', open ? '#adadad' : '#ffffff');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', open ? '#ababab' : '#fbfbfb');
   }, [list]);
   return list.map((s) => html`<${Sheet} key=${s.id} ...${s} />`);
 }
@@ -340,6 +341,14 @@ export function BusyHost() {
  * kind: 'camera' | 'photos' | 'file' (photo or PDF) | 'zip'. Resolves with an array of Files (empty if cancelled).
  */
 export function pickFiles(kind, { multiple = false } = {}) {
+  if (kind === 'camera' && useAppCamera()) {
+    return openCamera({ multiple, fallback: () => nativePicker('camera', { multiple: false }) });
+  }
+  return nativePicker(kind, { multiple });
+}
+
+/** The phone's own picker: the iPhone camera, the photo library or Files. */
+function nativePicker(kind, { multiple }) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';

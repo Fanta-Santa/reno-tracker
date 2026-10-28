@@ -194,6 +194,7 @@ function ExpenseForm({ initial, close }) {
       };
       if (l.description?.trim()) line.description = l.description.trim();
       if (l.auto) line.auto = true;
+      if (l.auto && l.unmatched?.length) line.unmatched = l.unmatched;
       return line;
     }),
     fileIds: d.files.map((f) => f.id),
@@ -351,6 +352,7 @@ function ExpenseForm({ initial, close }) {
         </div>
         <input class="split-desc" placeholder="Item (optional)" value=${l.description || ''} aria-label="Item"
           onInput=${(e) => updateLine(l.id, { description: e.currentTarget.value, auto: false })} />
+        ${l.unmatched?.length > 0 && html`<span class="receipt-lines">${l.unmatched.map((t) => html`<span>${t}</span>`)}</span>`}
         <div class="split-selects">
           <select value=${l.roomId || ''} onChange=${(e) => updateLine(l.id, { roomId: e.currentTarget.value })} aria-label="Room">
             ${roomItems.map((r) => html`<option value=${r.value}>${r.emoji} ${r.label}</option>`)}
