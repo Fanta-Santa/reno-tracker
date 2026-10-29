@@ -231,6 +231,9 @@ small { font-size: 13px; }
 }
 .callout.warn { background: rgba(255, 238, 200, 0.7); color: #6b4300; }
 .callout .icon { color: #d98a00; margin-top: 1px; }
+.callout > span { flex: 1; }
+.callout .pill-btn { align-self: center; }
+.callout:not(.warn) .icon { color: var(--accent); }
 
 
 /* ---------- Controls ---------- */
@@ -851,6 +854,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
   box-shadow: 0 20px 44px rgba(120, 60, 140, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.6);
   animation: float 4s ease-in-out infinite;
 }
+.setup-icon.small { width: 92px; height: 92px; border-radius: 22px; margin-bottom: 4px; }
+.guide-link { align-self: center; justify-content: center; }
 @keyframes float { 50% { transform: translateY(-6px); } }
 .setup-step { display: flex; flex-direction: column; gap: 14px; }
 .setup-step h1 { font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.12; }
@@ -876,7 +881,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .install-steps .icon { display: inline-block; vertical-align: -3px; color: var(--accent); }
 .install-num {
   flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+  background: var(--hot); color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 3px 8px rgba(232, 51, 111, 0.3);
 }
 
 /* ---------- Bigger screens (iPad / computer) ---------- */

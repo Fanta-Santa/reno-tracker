@@ -68,6 +68,12 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   unmatched remainder) and are not learned from; an `auto` line may carry `unmatched` (receipt text lines it covers).
 - `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
   `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap.
+- The friends' guide is `guide.html` (+ `css/guide.css`, on top of `css/app.css`): a plain page with no app code, linked
+  from Settings (`?from=app` turns its buttons into "Back to the app") and shared by `shareWithFriend()`, which sends
+  only the link. Keep it in step with the app when features or install steps change. The service worker serves the
+  pages it keeps as themselves; any other address opens the app. Install steps follow `browserKind()` in
+  `js/device.js` ('safari' | 'in-app' | 'ios-other' | 'android' | 'samsung' | 'computer'); Android's install offer
+  (`beforeinstallprompt`) is kept there too.
 - The top of the page matches the light grey (`--statusbar`, #fbfbfb) iOS draws behind the clock in Home Screen apps:
   the sky fades in from it. While a sheet is open, `SheetHost` sets `theme-color` to #bcb6c3 (that grey under the
   backdrop).
