@@ -386,9 +386,9 @@ export function ExpenseDetailView({ id }) {
     </div>
 
     <${Group}>
-      <${Row} icon="store" iconBg="#FF9500" label="Store" detail=${e.store || '—'} />
-      ${e.description && html`<${Row} icon="tag" iconBg="#5856D6" label="Item" detail=${e.description} />`}
-      ${quote && html`<${Row} icon="quote" iconBg="#8E8E93" label="Paid against quote"
+      <${Row} icon="store" iconBg="#FF8A3D" label="Store" detail=${e.store || '—'} />
+      ${e.description && html`<${Row} icon="tag" iconBg="#7A5CF0" label="Item" detail=${e.description} />`}
+      ${quote && html`<${Row} icon="quote" iconBg="#8C7A9E" label="Paid against quote"
         detail=${`${quote.supplier || quote.description || 'Quote'} · ${formatMoney(quote.amountCents, { whole: true })}`}
         onClick=${() => navigate(`/quotes/${quote.id}`)} />`}
     <//>

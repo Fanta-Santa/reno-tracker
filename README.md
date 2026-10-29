@@ -37,7 +37,7 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 ## Dashboard (Stage 2)
 
 - An illustrated early-1900s Australian cottage on a floating island, built from your rooms: always single-storey,
-  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a navy
+  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a coral
   corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah (your deck/outdoor area), plus a garage
   shed, garden, Hills Hoist and picket fence, softly lit at dusk by lamplit windows and porch and gate lamps.
   Whole-house stages (like Painting) float above as tags.
@@ -80,6 +80,15 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - The backup reminder on the dashboard only shows when something has changed since your last backup: after
   14 days, or sooner once 10 or more receipts and quotes are new or changed.
 
+## The look ("Glass")
+
+- A soft evening sky behind every screen: peach at the top, pink in the middle and lilac at the bottom, starting as
+  the light grey iOS draws behind the clock, so there's no line at the very top.
+- Frosted glass cards, deep plum text, cobalt-blue links and choices, and a coral-to-pink ＋ button and main
+  buttons. Titles and amounts use Bricolage Grotesque; everything else uses Aptos (or Albert Sans where Aptos
+  isn't installed).
+- The app icon is a budget ring: a glass ring filling up as you spend, with the house in the middle.
+
 Coming next: the install guide for friends, and dark mode.
 
 ## How it's built
@@ -89,6 +98,7 @@ Plain HTML, CSS and JavaScript with no build step. Opening `index.html` through 
 | Path | What it is |
 |---|---|
 | `index.html`, `css/app.css` | Page shell and all the styling |
+| `icons/` | The app icon: `icon.svg`, and the PNGs drawn from it by `node tools/make-icons.mjs` |
 | `js/main.js` | Starts the app, picks the screen, draws the tab bar |
 | `js/store.js`, `js/db.js` | Your data, saved in the phone's built-in database (IndexedDB) |
 | `js/format.js` | Money (whole cents), GST and dd/mm/yyyy dates |

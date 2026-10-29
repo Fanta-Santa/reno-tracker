@@ -9,6 +9,7 @@ Copied in as-is so the app needs no install or build step, and works offline.
 | `tesseract/core/*-lstm.wasm.js` | `tesseract.js-core@7.0.0` (the three LSTM-only builds; each phone downloads just the one it needs) | Apache-2.0 |
 | `tesseract/lang/eng.traineddata.gz` | `@tesseract.js-data/eng@1.0.0`, `4.0.0_best_int/` (Tesseract's English model) | Apache-2.0 (model), MIT (package) |
 | `fonts/albert-sans.woff2` | `@fontsource-variable/albert-sans@5.3.0`, `files/albert-sans-latin-wght-normal.woff2` (a free close match for Aptos) | SIL Open Font License 1.1 (`fonts/LICENSE-albert-sans.txt`) |
+| `fonts/bricolage-grotesque.woff2` | `@fontsource-variable/bricolage-grotesque@5.3.0`, `files/bricolage-grotesque-latin-opsz-normal.woff2` (weight and optical size; titles and amounts) | SIL Open Font License 1.1 (`fonts/LICENSE-bricolage-grotesque.txt`) |
 | `pdfjs/pdf.min.js`, `pdfjs/pdf.worker.min.js` | `pdfjs-dist@4.10.38`, `build/pdf.min.mjs` and `build/pdf.worker.min.mjs` (renamed to `.js` so every web host serves them as JavaScript) | Apache-2.0 (`pdfjs/LICENSE.txt`) |
 
 To update one, download the package with `npm pack <name>@<version>`, copy the same file over, and bump `VERSION` in `sw.js`

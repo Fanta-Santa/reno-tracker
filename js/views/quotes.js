@@ -235,12 +235,12 @@ export function QuoteDetailView({ id }) {
     <//>`}
 
     <${Group} title="Details">
-      <${Row} icon="store" iconBg="#FF9500" label="Supplier" detail=${quote.supplier || '—'} />
-      ${dueFor(quote) && html`<${Row} icon="calendar" iconBg=${dueFor(quote).status === 'over' ? '#d03b3b' : '#FF9500'} label="Next payment due"
+      <${Row} icon="store" iconBg="#FF8A3D" label="Supplier" detail=${quote.supplier || '—'} />
+      ${dueFor(quote) && html`<${Row} icon="calendar" iconBg=${dueFor(quote).status === 'over' ? '#d03b3b' : '#FF8A3D'} label="Next payment due"
         detail=${dueFor(quote).status === 'none' ? formatDate(quote.dueDate) : `${formatDate(quote.dueDate)} · ${dueFor(quote).text.replace(/^Due /, '')}`} />`}
-      ${quote.description && html`<${Row} icon="tag" iconBg="#5856D6" label="For" detail=${quote.description} />`}
+      ${quote.description && html`<${Row} icon="tag" iconBg="#7A5CF0" label="For" detail=${quote.description} />`}
       <${Row} icon=${room ? roomType(room.type).emoji : '❔'} label="Room or stage" detail=${room?.name || '—'} />
-      ${parts.length < 2 && html`<${Row} icon="quote" iconBg="#8E8E93" label="Category" detail=${category?.name || '—'} />`}
+      ${parts.length < 2 && html`<${Row} icon="quote" iconBg="#8C7A9E" label="Category" detail=${category?.name || '—'} />`}
     <//>
     ${parts.length > 1 && html`<${Group} title="Breakdown" footer="Payments are split across these in proportion.">
       ${parts.map((pt) => html`<${Row} key=${pt.categoryId} label=${categoryById(pt.categoryId)?.name || 'Other'} detail=${formatMoney(pt.amountCents)} />`)}

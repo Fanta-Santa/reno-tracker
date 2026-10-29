@@ -205,3 +205,31 @@ test('the offline cache lists every app file, and versions match', () => {
   const appVersion = readFileSync(join(ROOT, 'js/version.js'), 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
   assert.equal(swVersion, appVersion, 'Bump VERSION in sw.js and APP_VERSION in js/version.js together');
 });
+
+test('the icons are the sizes the manifest says, and solid (iPhone fills see-through corners with black)', () => {
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.webmanifest'), 'utf8'));
+  // A PNG's width and height sit at bytes 16-23; byte 25 is its colour type (2 = RGB, no transparency).
+  const png = (file) => {
+    const b = readFileSync(join(ROOT, file));
+    return { w: b.readUInt32BE(16), h: b.readUInt32BE(20), alpha: b[25] === 4 || b[25] === 6 };
+  };
+  for (const icon of manifest.icons) {
+    const [w, h] = icon.sizes.split('x').map(Number);
+    const p = png(icon.src);
+    assert.deepEqual([p.w, p.h], [w, h], `${icon.src} should be ${icon.sizes}`);
+  }
+  const touch = png('icons/apple-touch-icon.png');
+  assert.deepEqual([touch.w, touch.h, touch.alpha], [180, 180, false]);
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  assert.match(html, /rel="apple-touch-icon" href="icons\/apple-touch-icon.png"/);
+  assert.match(html, /rel="icon" href="icons\/icon.svg"/);
+});
+
+test('every colour and size token the stylesheet uses is defined', () => {
+  const css = readFileSync(join(ROOT, 'css/app.css'), 'utf8');
+  const defined = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
+  const used = new Set([...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
+  // A few are set from JavaScript, per element.
+  for (const name of ['--count', '--index']) defined.add(name);
+  for (const name of used) assert.ok(defined.has(name), `css/app.css uses var(${name}) but never defines it`);
+});

@@ -209,17 +209,17 @@ export function DashboardView() {
 
     ${(inbox > 0 || missing > 0 || backupDue) && html`<${Group} title="To do">
       ${inbox > 0 && html`<button class="row tappable todo" onClick=${() => navigate('/inbox')}>
-        <span class="row-icon" style="background:#007AFF"><${Icon} name="inbox" size=${18} /></span>
+        <span class="row-icon" style="background:#2F5BEA"><${Icon} name="inbox" size=${18} /></span>
         <span class="row-label">${inbox} ${inbox === 1 ? 'receipt' : 'receipts'} to sort</span>
         <${Icon} name="chevronRight" size=${16} class="row-chevron" stroke=${2.2} />
       </button>`}
       ${missing > 0 && html`<button class="row tappable todo" onClick=${() => showExpensesWith({ receipt: 'missing' })}>
-        <span class="row-icon" style="background:#FF9500"><${Icon} name="receipt" size=${18} /></span>
+        <span class="row-icon" style="background:#FF8A3D"><${Icon} name="receipt" size=${18} /></span>
         <span class="row-label">${missing} ${missing === 1 ? 'expense is' : 'expenses are'} missing a receipt</span>
         <${Icon} name="chevronRight" size=${16} class="row-chevron" stroke=${2.2} />
       </button>`}
       ${backupDue && html`<button class="row tappable todo" onClick=${runBackup}>
-        <span class="row-icon" style="background:#34C759"><${Icon} name="backup" size=${18} /></span>
+        <span class="row-icon" style="background:#1FB85A"><${Icon} name="backup" size=${18} /></span>
         <span class="row-label">Back up your receipts<small>${lastBackup
           ? `${backup.changes} ${backup.changes === 1 ? 'change' : 'changes'} since your last backup on ${formatDate(todayISO(new Date(lastBackup)))}`
           : 'Not backed up yet'}</small></span>
