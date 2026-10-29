@@ -44,6 +44,13 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   `quoteParts()`). Payments are split across the parts in proportion (`splitByWeights()`, the form's `shares`).
   Quotes (and bills, entered the same way) may have a `dueDate` for the next payment; `upcomingPayments()` feeds the
   dashboard's "Payments coming up" card until the quote is paid or declined.
+- Export (`js/export.js`, pure): `buildSheets()` makes the Summary / Expenses / Items / Quotes tabs, `toXLSX()` writes
+  a real .xlsx by hand (Office Open XML zipped with `createZip`, dates as Excel dates, amounts as numbers) and
+  `toCSV()` the Items tab (BOM, dd/mm/yyyy, formula-safe). Expenses are numbered R001… oldest first; receipt photos
+  in an export zip are named to match. The sheet is `js/views/export.js`; files go out through `shareFile()`
+  (`js/device.js`). Financial years are 1 July – 30 June (`financialYear()`).
+- Backup reminders come from `backupReminder()` in `js/stats.js`: only when something changed since the last backup,
+  and then after 14 days or 10 changes.
 - Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
   `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.

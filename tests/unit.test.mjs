@@ -10,6 +10,7 @@ import {
   formatDate, todayISO, monthLabel, shortDate, daysBetween, addDays,
 } from '../js/format.js';
 import { createZip, readZip, crc32 } from '../js/zip.js';
+import { buildSheets, numberItems, toCSV, toXLSX, xlsxEntries, financialYear, cleanName } from '../js/export.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -117,6 +118,67 @@ test('readZip also opens compressed zips (re-zipped on a computer)', async () =>
 
 test('readZip rejects files that are not zips', async () => {
   await assert.rejects(readZip(new Blob(['hello'])), /not a backup/);
+});
+
+// ---------- Export ----------
+
+const xRooms = [{ id: 'k', name: 'Kitchen', budgetCents: 1500000 }, { id: 'b', name: 'Bathroom', budgetCents: 900000 }];
+const xCats = [{ id: 't', name: 'Tools', isTool: true }, { id: 'm', name: 'Materials' }, { id: 'l', name: 'Trades / labour' }];
+const xLine = (id, roomId, categoryId, amountCents, description) => ({ id, roomId, categoryId, amountCents, isTool: categoryId === 't', description });
+const xExpenses = [
+  { id: 'e1', date: '2026-10-01', createdAt: 1, store: 'Bunnings', description: 'Screws, "timber" & sander', totalCents: 60000, gstCents: 5455,
+    fileIds: ['f1'], notes: '=SUM(A1)', lines: [xLine('a', 'k', 'm', 40000, 'Treated pine'), xLine('b', 'b', 't', 20000, 'Ryobi sander')] },
+  { id: 'e2', date: '2026-09-20', createdAt: 2, store: 'Pete’s Plumbing', description: 'Deposit', totalCents: 30000, gstCents: 2727,
+    fileIds: [], notes: '', quoteId: 'q1', lines: [xLine('c', 'b', 'l', 30000)] },
+];
+const xQuotes = [{ id: 'q1', date: '2026-09-01', supplier: 'Pete’s Plumbing', description: 'Rough-in', roomId: 'b', categoryId: 'l', amountCents: 100000, status: 'accepted', dueDate: '2026-11-07' }];
+const xCtx = { project: { name: 'Smith St reno' }, rooms: xRooms, categories: xCats, quotes: xQuotes, allExpenses: xExpenses, period: 'Everything', today: '2026-10-28', everything: true };
+
+test('financial years run 1 July to 30 June', () => {
+  assert.deepEqual(financialYear('2026-10-28'), { from: '2026-07-01', to: '2027-06-30', label: '2026–27' });
+  assert.deepEqual(financialYear('2026-06-30'), { from: '2025-07-01', to: '2026-06-30', label: '2025–26' });
+  assert.equal(financialYear('2026-10-28', -1).label, '2025–26');
+  assert.equal(cleanName('Pete’s Plumbing / Gas: "PTY"'), 'Pete’s Plumbing - Gas- -PTY-');
+});
+
+test('export: oldest first with references, GST shared across items, partial receipts noted', () => {
+  const numbered = numberItems(xExpenses.map((e) => ({ expense: e, lines: e.lines })));
+  assert.deepEqual(numbered.map((it) => [it.ref, it.expense.id]), [['R001', 'e2'], ['R002', 'e1']]);
+  const sheets = buildSheets(numbered, xCtx);
+  assert.deepEqual(sheets.map((s) => s.name), ['Summary', 'Expenses', 'Items', 'Quotes']);
+  const items = sheets.find((s) => s.name === 'Items').rows;
+  assert.deepEqual(items.slice(2).map((r) => [r[3], r[7].m, r[8].m]), [['Treated pine', 40000, 3637], ['Ryobi sander', 20000, 1818]]);
+  const csv = toCSV(items);
+  assert.ok(csv.startsWith('\ufeffRef,Date,Store,Item,'));
+  assert.match(csv, /\r\nR002,01\/10\/2026,Bunnings,Treated pine,Kitchen,Materials,,400\.00,36\.37,600\.00,Yes,'=SUM\(A1\)\r\n/);
+  // Just the bathroom part of a receipt (e.g. from a filtered list)
+  const part = buildSheets(numberItems([{ expense: xExpenses[0], lines: [xExpenses[0].lines[1]] }]), { ...xCtx, everything: false, period: 'Bathroom' });
+  const row = part.find((s) => s.name === 'Expenses').rows[1];
+  assert.deepEqual([row[6].m, row[7].m, row[12]], [20000, 1818, 'Part of a $600.00 receipt. =SUM(A1)']);
+  assert.ok(!part.some((s) => s.name === 'Quotes'));
+  const csvQuoted = toCSV(sheets.find((s) => s.name === 'Expenses').rows);
+  assert.match(csvQuoted, /,"Screws, ""timber"" & sander",/);
+});
+
+test('the Excel file is a valid workbook with real dates and amounts', async () => {
+  const sheets = buildSheets(numberItems(xExpenses.map((e) => ({ expense: e, lines: e.lines }))), xCtx);
+  const files = await readZip(await toXLSX(sheets));
+  assert.deepEqual([...files.keys()].slice(0, 5), ['[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/_rels/workbook.xml.rels', 'xl/styles.xml']);
+  const items = await (await files.get('xl/worksheets/sheet3.xml').blob()).text();
+  assert.match(items, /<c r="B2" s="3"><v>46285<\/v><\/c>/); // 20/09/2026 as an Excel date
+  assert.match(items, /<c r="H2" s="2"><v>300\.00<\/v><\/c>/); // $300.00 as a number
+  assert.match(items, /<autoFilter ref="A1:L4"\/>/);
+  // Every part must be well-formed XML (checked with Python's own parser).
+  const tmp = join(ROOT, 'tests', '.tmp-test.xlsx');
+  const { writeFileSync, rmSync } = await import('node:fs');
+  writeFileSync(tmp, new Uint8Array(await (await toXLSX(sheets)).arrayBuffer()));
+  try {
+    const out = execFileSync('python3', ['-c', 'import sys,zipfile,xml.dom.minidom as m; z=zipfile.ZipFile(sys.argv[1]); [m.parseString(z.read(n)) for n in z.namelist()]; print("ok")', tmp]).toString().trim();
+    assert.equal(out, 'ok');
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+  assert.equal(xlsxEntries([{ name: 'A & B', rows: [['x']], table: false }])[2].data.includes('name="A &amp; B"'), true);
 });
 
 test('the offline cache lists every app file, and versions match', () => {

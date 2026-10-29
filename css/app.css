@@ -1204,6 +1204,10 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .tag.due.s-near { background: #fff1d6; color: #6b4a00; }
 .tag.due.s-over { background: #fdeceb; color: #8c2020; }
 
+/* Export sheet */
+.export-note { color: var(--text-2); font-size: 14px; line-height: 1.4; }
+.export-summary { text-align: center; color: var(--text-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+
 /* Payments coming up (dashboard) */
 .due-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
 .due-card .chart-title { margin-bottom: 4px; }

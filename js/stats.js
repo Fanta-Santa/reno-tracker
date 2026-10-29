@@ -153,6 +153,16 @@ export function computeStats({ rooms, categories, expenses, quotes = [] }) {
   };
 }
 
+/**
+ * Whether to remind you to back up: something has changed since your last backup (or you've never made one), and
+ * it's been 14 days, or 10 or more receipts and quotes have been added or changed. Returns { due, changes, days }.
+ */
+export function backupReminder({ expenses, quotes = [] }, lastBackupAt, now = Date.now()) {
+  const changes = [...expenses, ...quotes].filter((x) => (x.updatedAt ?? x.createdAt ?? 0) > (lastBackupAt || 0)).length;
+  const days = lastBackupAt ? Math.floor((now - lastBackupAt) / 86400000) : null;
+  return { due: changes > 0 && (!lastBackupAt || days >= 14 || changes >= 10), changes, days };
+}
+
 // ---------- Spend over time ----------
 
 function weekStart(iso) {

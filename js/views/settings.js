@@ -13,6 +13,8 @@ import { navigate } from '../ui/router.js';
 import { isIOS, isStandalone } from '../device.js';
 import { APP_VERSION } from '../version.js';
 import { openRoomEditor, openCategoryEditor, openStoreEditor } from './editors.js';
+import { openExportSheet } from './export.js';
+import { backupReminder } from '../stats.js';
 
 // ---------- Backup & restore (also used by first-run setup) ----------
 
@@ -81,6 +83,7 @@ export function SettingsView() {
   const readerCached = useReaderCached();
   const autoRead = state.prefs.autoRead !== false;
   const lastBackup = state.prefs.lastBackupAt;
+  const reminder = backupReminder(state, lastBackup);
   const active = (list) => list.filter((x) => !x.archived).length;
 
   const renameProject = () => openSheet(({ close }) => html`<${TextEditSheet} title="Project name" value=${state.project.name}
@@ -114,7 +117,12 @@ export function SettingsView() {
         detail=${readerCached == null ? '…' : readerCached ? 'Ready offline' : 'Downloads on first use (7 MB)'} />
     <//>
 
-    <${Group} title="Backup" footer="A backup is one .zip file with all your data and receipt photos. Save it to iCloud Drive or Files. It can be restored on this phone or a new one.">
+    <${Group} title="Export" footer="A spreadsheet of your spending (Excel or CSV), for your records, your accountant or insurance. Add the receipt photos to send everything in one .zip.">
+      <${Row} icon="share" iconBg="#34C759" label="Export to Excel or CSV" onClick=${() => openExportSheet()} />
+    <//>
+
+    <${Group} title="Backup" footer=${`A backup is one .zip file with all your data and receipt photos. Save it to iCloud Drive or Files. It can be restored on this phone or a new one.${
+      lastBackup && reminder.changes ? ` ${reminder.changes} ${reminder.changes === 1 ? 'change' : 'changes'} since your last backup.` : ''}`}>
       <${Row} icon="backup" iconBg="#007AFF" label="Back up now" detail=${lastBackup ? `Last: ${formatTimestamp(lastBackup)}` : 'Never'} onClick=${runBackup} />
       <${Row} icon="restore" iconBg="#8E8E93" label="Restore from a backup" onClick=${runRestore} />
     <//>

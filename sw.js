@@ -2,7 +2,7 @@
 // When VERSION changes, phones download the new files and the app offers an "Update" button.
 // Your data is NOT stored here. It lives in the app's database and is never touched by updates.
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 const CACHE = `reno-tracker-${VERSION}`;
 
 // The receipt reader is big (~7 MB), so it isn't downloaded with the app. Each file is fetched the
@@ -30,6 +30,7 @@ const FILES = [
   'js/db.js',
   'js/defaults.js',
   'js/device.js',
+  'js/export.js',
   'js/format.js',
   'js/images.js',
   'js/lib.js',
@@ -53,6 +54,7 @@ const FILES = [
   'js/views/editors.js',
   'js/views/expense-form.js',
   'js/views/expenses.js',
+  'js/views/export.js',
   'js/views/house.js',
   'js/views/quotes.js',
   'js/views/review.js',

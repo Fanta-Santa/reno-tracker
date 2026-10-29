@@ -1,7 +1,7 @@
 // Checks the dashboard numbers. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime, upcomingPayments } from '../js/stats.js';
+import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime, upcomingPayments, backupReminder } from '../js/stats.js';
 import { smoothPath, smoothSeries } from '../js/ui/charts.js';
 
 const rooms = [
@@ -147,4 +147,17 @@ test('payments coming up: unpaid quotes and bills with a due date, soonest first
   const ex = [{ id: 'p', quoteId: 'later', status: 'filed', totalCents: 40000 }, { id: 'c', quoteId: 'covered', status: 'filed', totalCents: 30000 }];
   const up = upcomingPayments(quotes, ex, '2026-10-28');
   assert.deepEqual(up.map((u) => [u.quote.id, u.amount, u.days]), [['overdue', 25000, -3], ['later', 60000, 23]]);
+});
+
+test('backup reminder: only when something changed, after 14 days or 10 changes', () => {
+  const day = 86400000;
+  const now = Date.UTC(2026, 9, 28);
+  const made = (n, at) => Array.from({ length: n }, (_, i) => ({ id: `x${i}`, updatedAt: at }));
+  assert.deepEqual(backupReminder({ expenses: [] }, null, now), { due: false, changes: 0, days: null });
+  assert.equal(backupReminder({ expenses: made(1, now) }, null, now).due, true); // never backed up
+  const last = now - 20 * day;
+  assert.deepEqual(backupReminder({ expenses: made(3, last - day) }, last, now), { due: false, changes: 0, days: 20 }); // nothing new
+  assert.equal(backupReminder({ expenses: made(2, now - day) }, last, now).due, true); // 20 days and 2 changes
+  assert.equal(backupReminder({ expenses: made(9, now) }, now - 3 * day, now).due, false);
+  assert.equal(backupReminder({ expenses: made(6, now), quotes: made(4, now) }, now - 3 * day, now).due, true); // 10 changes
 });

@@ -3,12 +3,13 @@
 // Needs Playwright with Chromium installed.
 
 import { createRequire } from 'node:module';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { serve } from './serve.mjs';
+import { readZip } from '../js/zip.js';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -342,6 +343,54 @@ try {
     await page.locator('.house.closed').waitFor();
     await page.locator('.nav-actions .status-pill').waitFor();
     assert.equal(await page.locator('.house-caption').count(), 0);
+  });
+
+  await check('export to Excel, a CSV with the receipt photos, and just the filtered list', async () => {
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByText('Export to Excel or CSV'));
+    await sheet().locator('.export-summary', { hasText: '4 expenses · $456.00' }).waitFor();
+    await shot('export');
+    const [xlsx] = await Promise.all([page.waitForEvent('download'), tap(sheet().getByRole('button', { name: 'Export', exact: true }))]);
+    assert.match(xlsx.suggestedFilename(), /^reno-test-reno-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    const xlsxPath = join(FIXTURES, '..', '.tmp-export.xlsx');
+    await xlsx.saveAs(xlsxPath);
+    const book = await readZip(new Blob([readFileSync(xlsxPath)]));
+    assert.ok(book.has('xl/workbook.xml'));
+    const items = await (await book.get('xl/worksheets/sheet3.xml').blob()).text();
+    assert.match(items, /Mitre 10 Online/);
+    await expectToast('Export ready');
+
+    // A CSV with the receipt photos, in one .zip.
+    await tap(page.getByText('Export to Excel or CSV'));
+    await tap(sheet().getByRole('tab', { name: 'CSV' }));
+    await tap(sheet().getByRole('switch', { name: 'Receipt photos' }));
+    await sheet().locator('.export-summary', { hasText: '4 expenses · $456.00 · 2 with a receipt photo' }).waitFor();
+    const [zip] = await Promise.all([page.waitForEvent('download'), tap(sheet().getByRole('button', { name: 'Export', exact: true }))]);
+    assert.match(zip.suggestedFilename(), /-with-receipts\.zip$/);
+    const zipPath = join(FIXTURES, '..', '.tmp-export.zip');
+    await zip.saveAs(zipPath);
+    const bundle = await readZip(new Blob([readFileSync(zipPath)]));
+    const names = [...bundle.keys()];
+    assert.ok(names.some((n) => /^Receipts\/R00\d \d{4}-\d{2}-\d{2} Mitre 10 Online\.pdf$/.test(n)), names.join(', '));
+    assert.ok(names.filter((n) => n.startsWith('Receipts/')).length >= 2);
+    const csv = await (await bundle.get(names.find((n) => n.endsWith('.csv'))).blob()).text();
+    assert.match(csv, /Mitre 10 Online/);
+
+    // The Expenses list, filtered to the kitchen (from the budget bars), exports just that.
+    await tap(page.locator('.tab', { hasText: 'Home' }));
+    await tap(page.locator('.bb-row', { hasText: 'Kitchen' }));
+    await page.locator('.chip.removable', { hasText: 'Kitchen' }).waitFor();
+    await tap(page.getByRole('button', { name: 'Export' }));
+    await sheet().locator('.chip.on', { hasText: 'As filtered (2)' }).waitFor();
+    await tap(sheet().getByRole('tab', { name: 'CSV' }));
+    await sheet().locator('.export-summary', { hasText: '2 expenses · $204.50' }).waitFor();
+    await shot('export-filtered');
+    const [kitchen] = await Promise.all([page.waitForEvent('download'), tap(sheet().getByRole('button', { name: 'Export', exact: true }))]);
+    assert.match(kitchen.suggestedFilename(), /\.csv$/);
+    const rows = (await (await kitchen.createReadStream()).toArray()).join('').trim().split('\r\n');
+    assert.equal(rows.length, 3); // header + the two kitchen items
+    assert.ok(rows.slice(1).every((r) => r.includes(',Kitchen,')), rows.join('\n'));
+    await tap(page.locator('.chip.removable', { hasText: 'Kitchen' }));
   });
 
   await check('settings lists and rename a store', async () => {
@@ -749,5 +798,7 @@ try {
   server.close();
   const { rmSync } = await import('node:fs');
   rmSync(join(FIXTURES, '..', '.tmp-backup.zip'), { force: true });
+  rmSync(join(FIXTURES, '..', '.tmp-export.xlsx'), { force: true });
+  rmSync(join(FIXTURES, '..', '.tmp-export.zip'), { force: true });
   rmSync(CAMERA_FEED, { force: true });
 }
