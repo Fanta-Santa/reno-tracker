@@ -23,7 +23,7 @@ export function SetupView() {
   if (step === 'welcome') {
     return html`<div class="setup">
       <div class="setup-hero">
-        <div class="setup-house">🏡</div>
+        <img class="setup-icon" src="icons/icon.svg" alt="" width="140" height="140" />
         <h1>Reno Tracker</h1>
         <p>Snap every receipt, split it across rooms, and see what you’ve spent against your budget.</p>
       </div>

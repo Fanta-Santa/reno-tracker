@@ -7,8 +7,17 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 ## Rules
 
 - **Font:** `"Aptos"` first (where installed), then Albert Sans (OFL, bundled in `vendor/fonts/`). Aptos itself
-  must not be bundled: its licence doesn't allow it on a public website.
-- **Cards are glass:** use `var(--card)` + `var(--card-blur)` + `var(--card-border)`, not solid white.
+  must not be bundled: its licence doesn't allow it on a public website. Titles and amounts use `--font-display`
+  (`--font-round` points at it): Bricolage Grotesque (OFL, bundled in `vendor/fonts/`, with its optical sizes).
+- **The look is "Glass":** a pastel sky (`--sky`: peach → pink → lilac) fixed behind everything on `body::before`,
+  deep plum ink (`--text` #2a1640, `--text-2` #5e4a6e), cobalt accent (`--accent` #2f5bea) and the coral → pink
+  `--hot` gradient for the ＋ button and primary buttons. Sheets are a lighter piece of the sky (`--sheet-bg`), over a
+  plum backdrop. Separators inside glass cards are fine white lines.
+- **Cards are glass:** use `var(--card)` + `var(--card-blur)` + `var(--card-border)` + `var(--shadow-card)`, not solid
+  white. See-through white (`--surface-2`, `--fill`) vanishes on solid white, so solid-white cards (the receipt
+  confirmation cards) override those tokens with a pink-lilac tint.
+- **App icon:** the budget ring in `icons/icon.svg` (full bleed, everything inside the middle 80% so it also works as
+  a maskable icon). After changing it, redraw the PNGs with `node tools/make-icons.mjs` (Playwright) and bump `VERSION`.
 - **No build step, no npm dependencies at runtime.** Plain ES modules; third-party code is copied into `vendor/`
   (Preact + htm for UI, pdf.js for PDFs). Use `.js` extensions for anything the browser loads as a module.
 - **Every asset path is relative** (no leading `/`): the site is served from `/reno-tracker/`.
@@ -22,13 +31,14 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   replaces everything and so asks first.
 - Room `type` (see `ROOM_TYPES` in `js/defaults.js`) decides where a room sits on the dashboard house
   (`js/views/house.js`, hand-drawn isometric SVG; `buildHouse()` lays it out). The house is always single-storey:
-  an early-1900s Australian cottage (cream weatherboards, navy corrugated iron, bullnose verandah), softly lit at
-  dusk (lamplit windows, porch and gate lamps; gradients in `Defs`). Up to 3 rooms in a row; more go either side of
-  a central hallway with low-cut interior walls. It starts closed (roof on, side wall up) with a budget status pill
-  top right of the dashboard; tapping it lifts the roof up and back, fades the side wall (`layer: 'shell'`) and
-  shows the room pins. The roof goes back on by dragging it down (no button; a screen-reader-only one). Status
-  overlays (class `st`) only show while it's open. Closed, the top of the dashboard is just the title, the status
-  pill and the house; its background (`.page.dashboard`) fades from `--statusbar` to evening peach, with no edges.
+  an early-1900s Australian cottage (cream weatherboards, coral corrugated iron, bullnose verandah, in soft pastels to
+  suit the sky), softly lit at dusk (lamplit windows, porch and gate lamps; gradients in `Defs`). Up to 3 rooms in a
+  row; more go either side of a central hallway with low-cut interior walls. It starts closed (roof on, side wall up)
+  with a budget status pill top right of the dashboard; tapping it lifts the roof up and back, fades the side wall
+  (`layer: 'shell'`) and shows the room pins. The roof goes back on by dragging it down (no button; a
+  screen-reader-only one). Status overlays (class `st`) only show while it's open. Closed, the top of the dashboard
+  is just the title, the status pill and the house, sitting straight on the sky (no background of its own, so no
+  edges).
 - Dashboard numbers come from `js/stats.js` (pure). Budget status: 'none' | 'ok' | 'near' (90%+, or accepted quotes
   would tip it over) | 'over'. Status colours (#0ca30c / #fab219 / #d03b3b) always come with a ✓ / ! / ‼ badge.
 - Charts (`js/ui/charts.js`): spending is #2a78d6, tools #eb6834 (pair validated for colour blindness); one axis only.
@@ -58,7 +68,9 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   unmatched remainder) and are not learned from; an `auto` line may carry `unmatched` (receipt text lines it covers).
 - `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
   `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap.
-- The top of the page matches the light grey (`--statusbar`, #fbfbfb) iOS draws behind the clock in Home Screen apps.
+- The top of the page matches the light grey (`--statusbar`, #fbfbfb) iOS draws behind the clock in Home Screen apps:
+  the sky fades in from it. While a sheet is open, `SheetHost` sets `theme-color` to #bcb6c3 (that grey under the
+  backdrop).
 
 ## Checks before pushing
 

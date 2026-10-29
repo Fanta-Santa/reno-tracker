@@ -227,7 +227,7 @@ export function SheetHost() {
     const open = list.some((s) => !s.closing);
     document.documentElement.classList.toggle('sheet-open', open);
     // Dim the status bar along with the page behind a sheet (where iOS supports it).
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', open ? '#ababab' : '#fbfbfb');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', open ? '#bcb6c3' : '#fbfbfb');
   }, [list]);
   return list.map((s) => html`<${Sheet} key=${s.id} ...${s} />`);
 }

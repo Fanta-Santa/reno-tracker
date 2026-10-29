@@ -1,6 +1,6 @@
 // The dashboard house: an early-1900s Australian cottage on a floating island, drawn from your rooms and stages.
 // It's single-storey: interior rooms (kitchen, bathroom, bedroom, living, laundry, other) run in a row from the
-// back of the house to the front. Cream weatherboards, a navy corrugated-iron hipped roof (your roof/exterior work)
+// back of the house to the front. Cream weatherboards, a coral corrugated-iron hipped roof (your roof/exterior work)
 // and a bullnose verandah (your first deck/outdoor area), lit by warm lamps at dusk. A garage shed, garden, Hills
 // Hoist and picket fence sit around it. Whole-house stages (e.g. Painting) float above as tags.
 // It starts closed up, with the roof on. Tap it and the roof lifts and the side wall fades, like a dollhouse, so you
@@ -23,27 +23,27 @@ const MAX_ROOMS = 10;
 
 const STATUS = { ok: '#0ca30c', near: '#fab219', over: '#d03b3b' };
 const FLOOR = {
-  living: '#EACBA8', kitchen: '#F2E5CE', bathroom: '#D2E6EE', bedroom: '#E6DCF0', laundry: '#D7EBDE', other: '#EFE6D8',
+  living: '#EAD5BD', kitchen: '#F3EBDD', bathroom: '#DFECF1', bedroom: '#EEE8F4', laundry: '#BDE4CA', other: '#F2EDE4',
 };
-const WALL_TOP = '#FFFDF8';
-const WALL_BACK = '#F7F0E6';
-const WALL_SIDE = '#EEE4D7';
-// Cottage colours: cream weatherboards, white trim, navy corrugated iron, warm lamplight
-const BOARD = '#F3E5CB'; // walls facing the soft evening light
-const BOARD_SHADE = '#E6D3B5'; // walls in shade
-const BOARD_LINE = '#E2CDAA';
-const BOARD_LINE_SHADE = '#D6BF9C';
-const IRON = '#3B4F73';
-const IRON_LIGHT = '#4B628A';
-const IRON_DARK = '#28374F';
-const IRON_RIB = '#33466A';
-const CAPPING = '#D3DAE6';
-const BRICK = '#B56B52';
-const SLAB_SIDE = '#E4DACC';
-const WOOD = '#C69466';
+const WALL_TOP = '#FEFAF1';
+const WALL_BACK = '#FAF6F1';
+const WALL_SIDE = '#F1EBE3';
+// Cottage colours (pastel, to suit the sky): cream weatherboards, white trim, coral corrugated iron, warm lamplight
+const BOARD = '#F4EBDB'; // walls facing the soft evening light
+const BOARD_SHADE = '#E8DBC7'; // walls in shade
+const BOARD_LINE = '#E4D6BE';
+const BOARD_LINE_SHADE = '#D9C9B1';
+const IRON = '#EB6C5E';
+const IRON_LIGHT = '#EE7F73';
+const IRON_DARK = '#E75140';
+const IRON_RIB = '#EA6455';
+const CAPPING = '#FDEEEC';
+const BRICK = '#B98371';
+const SLAB_SIDE = '#E9E2D9';
+const WOOD = '#C8A483';
 const WHITE = '#FFFFFF';
-const GREEN = '#7DBE74';
-const DOOR = '#4E7A68'; // heritage green
+const GREEN = '#ABDDBC';
+const DOOR = '#628F7D'; // heritage green
 // Gradients defined in <House>: lamplit glass, the soft glow around a lamp, and a pool of light on the floor.
 const GLASS = 'url(#hs-glass)';
 const GLOW = 'url(#hs-glow)';
@@ -101,7 +101,7 @@ function ringOnY(Y, cx, cz, r, fill) {
 
 // A back-wall window seen from inside: the evening sky outside.
 function windowOnY(Y, xa, xb, za, zb) {
-  return [onY(Y, xa - 0.03, xb + 0.03, za - 0.03, zb + 0.03, WHITE), onY(Y, xa, xb, za, zb, '#CBD8EE'),
+  return [onY(Y, xa - 0.03, xb + 0.03, za - 0.03, zb + 0.03, WHITE), onY(Y, xa, xb, za, zb, '#DAE2F0'),
     onY(Y, (xa + xb) / 2 - 0.01, (xa + xb) / 2 + 0.01, za, zb, WHITE)];
 }
 
@@ -113,7 +113,7 @@ function litWindowOnY(Y, xa, xb, za, zb) {
     onY(Y, xa, xb, za, zb, GLASS),
     onY(Y, xa, xb, mid - 0.008, mid + 0.008, WHITE),
     onY(Y, (xa + xb) / 2 - 0.007, (xa + xb) / 2 + 0.007, za, zb, WHITE),
-    onY(Y, xa - 0.06, xb + 0.06, za - 0.055, za - 0.03, '#E8DCC6'), // sill
+    onY(Y, xa - 0.06, xb + 0.06, za - 0.055, za - 0.03, '#EBE3D5'), // sill
     glow((xa + xb) / 2, Y + 0.02, mid, (xb - xa) * 1.25, (zb - za) * 1.05),
   ];
 }
@@ -126,64 +126,64 @@ function furniture(type, x0, y0, z0) {
   const back = (xa, xb, za, zb, fill) => onY(y0 + T, x0 + xa, x0 + xb, z0 + za, z0 + zb, fill);
   switch (type) {
     case 'living': return [
-      back(0.36, 0.62, 0.38, 0.58, '#F6C453'),
-      f(0.18, 0.42, 0.004, 0.64, 0.52, '#F4A88C'),
-      ...b(0.14, 0.1, 0, 0.62, 0.1, 0.32, '#5FB3B3'),
-      ...b(0.1, 0.1, 0, 0.06, 0.34, 0.2, '#58A6A6'),
-      ...b(0.16, 0.2, 0, 0.58, 0.22, 0.14, '#73C7C5'),
-      ...b(0.74, 0.1, 0, 0.06, 0.34, 0.2, '#58A6A6'),
+      back(0.36, 0.62, 0.38, 0.58, '#EDC978'),
+      f(0.18, 0.42, 0.004, 0.64, 0.52, '#F0BBA7'),
+      ...b(0.14, 0.1, 0, 0.62, 0.1, 0.32, '#7BB8B8'),
+      ...b(0.1, 0.1, 0, 0.06, 0.34, 0.2, '#74AEAE'),
+      ...b(0.16, 0.2, 0, 0.58, 0.22, 0.14, '#8ECAC9'),
+      ...b(0.74, 0.1, 0, 0.06, 0.34, 0.2, '#74AEAE'),
       ...b(0.36, 0.6, 0, 0.26, 0.16, 0.12, WOOD),
-      ...b(0.84, 0.82, 0, 0.1, 0.1, 0.1, '#E08A5F'),
-      ball(x0 + 0.89, y0 + 0.87, z0 + 0.24, 0.12, GREEN), ball(x0 + 0.86, y0 + 0.84, z0 + 0.29, 0.06, '#8BD487'),
+      ...b(0.84, 0.82, 0, 0.1, 0.1, 0.1, '#DD9F80'),
+      ball(x0 + 0.89, y0 + 0.87, z0 + 0.24, 0.12, GREEN), ball(x0 + 0.86, y0 + 0.84, z0 + 0.29, 0.06, '#B0DFC0'),
       // A floor lamp in the corner
       pool(x0 + 0.86, y0 + 0.3, z0 + 0.004, 0.28),
-      ...b(0.85, 0.28, 0, 0.02, 0.02, 0.5, '#8C7A68'),
-      ...b(0.8, 0.23, 0.46, 0.12, 0.12, 0.12, '#FFE3A6', { left: '#FFE7B3', right: '#F6CF85', top: '#FFF1D2' }),
+      ...b(0.85, 0.28, 0, 0.02, 0.02, 0.5, '#9B8C7E'),
+      ...b(0.8, 0.23, 0.46, 0.12, 0.12, 0.12, '#FAE7BE', { left: '#FBEBC9', right: '#F1D5A2', top: '#FDF5E3' }),
       glow(x0 + 0.86, y0 + 0.29, z0 + 0.5, 0.3),
     ];
     case 'kitchen': return [
-      back(0.08, 0.7, 0.36, 0.5, '#DCEFF7'),
-      ...b(0.06, 0.08, 0, 0.66, 0.24, 0.3, WHITE, { top: '#D8D1C7' }),
-      onY(y0 + 0.32, x0 + 0.28, x0 + 0.29, z0 + 0.03, z0 + 0.27, '#E3DDD5'), onY(y0 + 0.32, x0 + 0.5, x0 + 0.51, z0 + 0.03, z0 + 0.27, '#E3DDD5'),
-      f(0.3, 0.12, 0.302, 0.18, 0.14, '#A9C7D8'),
+      back(0.08, 0.7, 0.36, 0.5, '#E9F4F8'),
+      ...b(0.06, 0.08, 0, 0.66, 0.24, 0.3, WHITE, { top: '#DFDAD4' }),
+      onY(y0 + 0.32, x0 + 0.28, x0 + 0.29, z0 + 0.03, z0 + 0.27, '#E9E5E0'), onY(y0 + 0.32, x0 + 0.5, x0 + 0.51, z0 + 0.03, z0 + 0.27, '#E9E5E0'),
+      f(0.3, 0.12, 0.302, 0.18, 0.14, '#BCD0DC'),
       ...b(0.06, 0.08, 0.5, 0.42, 0.12, 0.16, WHITE),
-      ...b(0.74, 0.08, 0, 0.2, 0.24, 0.62, '#E3E8EE', { top: '#F4F6F8' }),
-      ...b(0.24, 0.62, 0, 0.42, 0.2, 0.26, '#7FA6C9', { top: '#EEE8E0' }),
+      ...b(0.74, 0.08, 0, 0.2, 0.24, 0.62, '#EDF0F3', { top: '#F6F7F9' }),
+      ...b(0.24, 0.62, 0, 0.42, 0.2, 0.26, '#98B4CD', { top: '#F3EFEA' }),
       ...b(0.29, 0.9, 0, 0.08, 0.08, 0.16, WOOD), ...b(0.52, 0.9, 0, 0.08, 0.08, 0.16, WOOD),
     ];
     case 'bathroom': return [
-      back(0.04, 0.96, 0.02, 0.4, '#DDF1F8'),
+      back(0.04, 0.96, 0.02, 0.4, '#EAF5F9'),
       ...b(0.06, 0.08, 0, 0.58, 0.3, 0.2, WHITE, { top: '#FDFDFD' }),
-      f(0.1, 0.12, 0.202, 0.5, 0.22, '#8FD0EC'),
-      onX(x0 + T, y0 + 0.66, y0 + 0.92, z0 + 0.4, z0 + 0.62, '#CDE7F5'),
+      f(0.1, 0.12, 0.202, 0.5, 0.22, '#A9D6EA'),
+      onX(x0 + T, y0 + 0.66, y0 + 0.92, z0 + 0.4, z0 + 0.62, '#DDEDF6'),
       ...b(0.08, 0.62, 0, 0.16, 0.34, 0.26, WOOD, { top: WHITE }),
       ...b(0.76, 0.08, 0.1, 0.16, 0.07, 0.18, WHITE),
       ...b(0.78, 0.15, 0, 0.12, 0.18, 0.14, WHITE),
-      f(0.36, 0.5, 0.004, 0.3, 0.16, '#F4A88C'),
+      f(0.36, 0.5, 0.004, 0.3, 0.16, '#F0BBA7'),
     ];
     case 'bedroom': return [
-      f(0.22, 0.78, 0.004, 0.5, 0.28, '#F6C453'),
-      ...b(0.18, 0.08, 0, 0.58, 0.05, 0.36, '#B58BD8'),
+      f(0.22, 0.78, 0.004, 0.5, 0.28, '#EDC978'),
+      ...b(0.18, 0.08, 0, 0.58, 0.05, 0.36, '#C1A3DA'),
       ...b(0.18, 0.13, 0, 0.58, 0.62, 0.14, WOOD),
       ...b(0.2, 0.13, 0.14, 0.54, 0.6, 0.06, WHITE),
       ...b(0.24, 0.16, 0.2, 0.22, 0.12, 0.05, WHITE), ...b(0.5, 0.16, 0.2, 0.22, 0.12, 0.05, WHITE),
-      ...b(0.2, 0.37, 0.2, 0.54, 0.36, 0.03, '#B9A1EC'),
+      ...b(0.2, 0.37, 0.2, 0.54, 0.36, 0.03, '#C8B7EB'),
       ...b(0.8, 0.1, 0, 0.14, 0.14, 0.16, WOOD),
       pool(x0 + 0.87, y0 + 0.24, z0 + 0.004, 0.18),
-      ball(x0 + 0.87, y0 + 0.17, z0 + 0.25, 0.05, '#FFE3A0'),
+      ball(x0 + 0.87, y0 + 0.17, z0 + 0.25, 0.05, '#F9E6B9'),
       glow(x0 + 0.87, y0 + 0.17, z0 + 0.25, 0.2),
     ];
     case 'laundry': return [
-      ...b(0.08, 0.08, 0, 0.24, 0.24, 0.3, WHITE), ringOnY(y0 + 0.32, x0 + 0.2, z0 + 0.14, 0.08, '#C8D2DA'), ringOnY(y0 + 0.32, x0 + 0.2, z0 + 0.14, 0.055, '#9FC5DD'),
-      ...b(0.34, 0.08, 0, 0.24, 0.24, 0.3, WHITE), ringOnY(y0 + 0.32, x0 + 0.46, z0 + 0.14, 0.08, '#C8D2DA'), ringOnY(y0 + 0.32, x0 + 0.46, z0 + 0.14, 0.055, '#E5EAEE'),
-      ...b(0.64, 0.08, 0, 0.28, 0.24, 0.28, '#E3E8EE'), f(0.68, 0.12, 0.282, 0.2, 0.16, '#A9C7D8'),
-      ...b(0.5, 0.62, 0, 0.18, 0.14, 0.14, '#E9C49F'),
+      ...b(0.08, 0.08, 0, 0.24, 0.24, 0.3, WHITE), ringOnY(y0 + 0.32, x0 + 0.2, z0 + 0.14, 0.08, '#D5DBE1'), ringOnY(y0 + 0.32, x0 + 0.2, z0 + 0.14, 0.055, '#B4CEDF'),
+      ...b(0.34, 0.08, 0, 0.24, 0.24, 0.3, WHITE), ringOnY(y0 + 0.32, x0 + 0.46, z0 + 0.14, 0.08, '#D5DBE1'), ringOnY(y0 + 0.32, x0 + 0.46, z0 + 0.14, 0.055, '#EEF1F3'),
+      ...b(0.64, 0.08, 0, 0.28, 0.24, 0.28, '#EDF0F3'), f(0.68, 0.12, 0.282, 0.2, 0.16, '#BCD0DC'),
+      ...b(0.5, 0.62, 0, 0.18, 0.14, 0.14, '#E9CFB5'),
     ];
     default: return [
-      ...b(0.15, 0.15, 0, 0.3, 0.3, 0.26, '#D9B38C'),
-      ...b(0.52, 0.2, 0, 0.26, 0.26, 0.2, '#E2C29E'),
-      ...b(0.22, 0.2, 0.26, 0.2, 0.2, 0.18, '#E8CDA9'),
-      f(0.2, 0.28, 0.262, 0.3, 0.04, '#C9A27A'),
+      ...b(0.15, 0.15, 0, 0.3, 0.3, 0.26, '#DBC0A4'),
+      ...b(0.52, 0.2, 0, 0.26, 0.26, 0.2, '#E3CDB4'),
+      ...b(0.22, 0.2, 0.26, 0.2, 0.2, 0.18, '#E9D6BD'),
+      f(0.2, 0.28, 0.262, 0.3, 0.04, '#CCB094'),
     ];
   }
 }
@@ -204,7 +204,7 @@ const statusOutline = (pts, status) => (STATUS[status]
  */
 function roomCell(room, x0, y0, z0, { status, walls }) {
   const type = room ? room.type : 'empty';
-  const floor = FLOOR[type] || '#EFE6D8';
+  const floor = FLOOR[type] || '#F2EDE4';
   const shapes = [
     ...box(x0, y0, z0 - SLAB, 1, D, SLAB, SLAB_SIDE, { top: floor, left: SLAB_SIDE, right: shade(SLAB_SIDE, -0.1) }),
     ...box(x0, y0, z0, 1, T, walls.back, WALL_TOP, { faces: 'lt', left: WALL_BACK, top: WALL_TOP }),
@@ -220,18 +220,18 @@ function roomCell(room, x0, y0, z0, { status, walls }) {
 
 /** The central hallway: polished boards and a runner from the front door. */
 function hallShapes(cols, y0) {
-  const shapes = [...box(0, y0, FLOOR_Z - SLAB, cols, HALL, SLAB, SLAB_SIDE, { top: '#D9AA78', left: SLAB_SIDE, right: shade(SLAB_SIDE, -0.1) })];
-  for (let x = 0.1; x < cols; x += 0.12) shapes.push(poly([P(x, y0, FLOOR_Z), P(x + 0.006, y0, FLOOR_Z), P(x + 0.006, y0 + HALL, FLOOR_Z), P(x, y0 + HALL, FLOOR_Z)], '#CB9C6B'));
-  shapes.push(flat(0.25, y0 + 0.07, FLOOR_Z + 0.003, cols - 0.35, HALL - 0.14, '#B65C4F'));
-  shapes.push(flat(0.3, y0 + 0.1, FLOOR_Z + 0.005, cols - 0.45, HALL - 0.2, '#C9705F'));
+  const shapes = [...box(0, y0, FLOOR_Z - SLAB, cols, HALL, SLAB, SLAB_SIDE, { top: '#D9B794', left: SLAB_SIDE, right: shade(SLAB_SIDE, -0.1) })];
+  for (let x = 0.1; x < cols; x += 0.12) shapes.push(poly([P(x, y0, FLOOR_Z), P(x + 0.006, y0, FLOOR_Z), P(x + 0.006, y0 + HALL, FLOOR_Z), P(x, y0 + HALL, FLOOR_Z)], '#CDAB87'));
+  shapes.push(flat(0.25, y0 + 0.07, FLOOR_Z + 0.003, cols - 0.35, HALL - 0.14, '#BA786E'));
+  shapes.push(flat(0.3, y0 + 0.1, FLOOR_Z + 0.005, cols - 0.45, HALL - 0.2, '#CA8A7D'));
   return shapes;
 }
 
 /** Lattice skirt and stumps under the floor. */
 function skirtShapes(n, depth) {
-  const shapes = [...box(0, 0, -SLAB, n, depth, FLOOR_Z, '#8C7864', { faces: 'lr', left: '#8C7864', right: '#7A6857' })];
-  for (let x = 0.08; x < n; x += 0.12) shapes.push(onY(depth, x, x + 0.02, -SLAB, FLOOR_Z - SLAB, '#6E5D4D'));
-  for (let y = 0.08; y < depth; y += 0.12) shapes.push(onX(n, y, y + 0.02, -SLAB, FLOOR_Z - SLAB, '#655546'));
+  const shapes = [...box(0, 0, -SLAB, n, depth, FLOOR_Z, '#9B8B7A', { faces: 'lr', left: '#9B8B7A', right: '#8E7C6B' })];
+  for (let x = 0.08; x < n; x += 0.12) shapes.push(onY(depth, x, x + 0.02, -SLAB, FLOOR_Z - SLAB, '#847262'));
+  for (let y = 0.08; y < depth; y += 0.12) shapes.push(onX(n, y, y + 0.02, -SLAB, FLOOR_Z - SLAB, '#7C6B5B'));
   return shapes;
 }
 
@@ -246,7 +246,7 @@ function facadeShapes(n, depth, door, windows) {
       onX(x, ya - 0.035, yb + 0.035, z0 + 0.17, z0 + 0.6, WHITE),
       onX(x, ya, yb, z0 + 0.2, z0 + 0.56, GLASS),
       onX(x, ya, yb, z0 + 0.375, z0 + 0.39, WHITE),
-      onX(x, ya - 0.05, yb + 0.05, z0 + 0.15, z0 + 0.175, '#E8DCC6'),
+      onX(x, ya - 0.05, yb + 0.05, z0 + 0.15, z0 + 0.175, '#EBE3D5'),
       glow(x + 0.02, (ya + yb) / 2, z0 + 0.38, (yb - ya) * 1.2, 0.36),
     );
   }
@@ -255,9 +255,9 @@ function facadeShapes(n, depth, door, windows) {
     onX(x, da - 0.02, db + 0.02, z0, z0 + 0.62, WHITE),
     onX(x, da, db, z0, z0 + 0.5, DOOR),
     onX(x, da, db, z0 + 0.52, z0 + 0.6, GLASS), // fanlight
-    onX(x, da + 0.025, db - 0.025, z0 + 0.06, z0 + 0.22, '#5C8B78'),
-    onX(x, da + 0.025, db - 0.025, z0 + 0.26, z0 + 0.44, '#5C8B78'),
-    onX(x, db - 0.05, db - 0.035, z0 + 0.26, z0 + 0.28, '#E9C46A'),
+    onX(x, da + 0.025, db - 0.025, z0 + 0.06, z0 + 0.22, '#729B8B'),
+    onX(x, da + 0.025, db - 0.025, z0 + 0.26, z0 + 0.44, '#729B8B'),
+    onX(x, db - 0.05, db - 0.035, z0 + 0.26, z0 + 0.28, '#E5CA8A'),
   );
   return shapes;
 }
@@ -288,20 +288,20 @@ function verandahShapes(n, depth, door, status) {
   const sa = door - 0.135; // the steps line up with the front door
   const sb = door + 0.135;
   const shapes = [
-    ...box(x0, ya, -SLAB, VW, yb - ya, deck + SLAB, '#C99A6B', { top: '#E2B88A', left: '#B98B5E', right: '#A87C52' }),
+    ...box(x0, ya, -SLAB, VW, yb - ya, deck + SLAB, '#CBA987', { top: '#E1C4A3', left: '#BD9C7B', right: '#B08E6E' }),
   ];
-  for (let x = x0 + 0.08; x < x1; x += 0.09) shapes.push(poly([P(x, ya, deck), P(x + 0.006, ya, deck), P(x + 0.006, yb, deck), P(x, yb, deck)], '#CFA375'));
+  for (let x = x0 + 0.08; x < x1; x += 0.09) shapes.push(poly([P(x, ya, deck), P(x + 0.006, ya, deck), P(x + 0.006, yb, deck), P(x, yb, deck)], '#D1B190'));
   shapes.push(...statusShapes([P(x0, ya, deck), P(x1, ya, deck), P(x1, yb, deck), P(x0, yb, deck)], status));
   // The porch light: a warm pool on the boards by the front door
   shapes.push(pool(x0 + VW * 0.42, door, deck, 0.42), glow(x0 + 0.04, door, FLOOR_Z + 0.2, 0.34, 0.3));
   // Front steps down to the path
-  shapes.push(...box(x1, sa, -SLAB, 0.14, sb - sa, deck - 0.03 + SLAB, '#C99A6B', { top: '#E2B88A' }));
-  shapes.push(...box(x1 + 0.14, sa, -SLAB, 0.12, sb - sa, (deck + SLAB) / 2 - 0.02, '#C99A6B', { top: '#E2B88A' }));
+  shapes.push(...box(x1, sa, -SLAB, 0.14, sb - sa, deck - 0.03 + SLAB, '#CBA987', { top: '#E1C4A3' }));
+  shapes.push(...box(x1 + 0.14, sa, -SLAB, 0.12, sb - sa, (deck + SLAB) / 2 - 0.02, '#CBA987', { top: '#E1C4A3' }));
   // Balustrade: a white rail with dowel balusters, either side of the steps
   const px = x1 - 0.05;
   for (const [y0, y1] of [[ya + 0.02, sa], [sb, yb - 0.02]]) {
-    for (let y = y0 + 0.04; y < y1 - 0.01; y += 0.05) shapes.push(...box(px + 0.012, y, deck, 0.012, 0.012, 0.26, WHITE, { right: '#F1EEE8' }));
-    shapes.push(...box(px, y0, deck + 0.26, 0.04, y1 - y0, 0.03, WHITE, { right: '#EDE8E0' }));
+    for (let y = y0 + 0.04; y < y1 - 0.01; y += 0.05) shapes.push(...box(px + 0.012, y, deck, 0.012, 0.012, 0.26, WHITE, { right: '#F6F4F1' }));
+    shapes.push(...box(px, y0, deck + 0.26, 0.04, y1 - y0, 0.03, WHITE, { right: '#F2EFEA' }));
   }
   // Turned posts with fretwork brackets
   const posts = [ya + 0.02, sa - 0.04, sb, yb - 0.06];
@@ -310,12 +310,12 @@ function verandahShapes(n, depth, door, status) {
     for (let k = 1; k <= extra; k++) posts.push(a + ((b - a) * k) / (extra + 1));
   }
   for (const y of posts.sort((p, q) => p - q)) {
-    shapes.push(...box(px, y, deck, 0.04, 0.04, beam - deck, WHITE, { right: '#ECE6DD' }));
+    shapes.push(...box(px, y, deck, 0.04, 0.04, beam - deck, WHITE, { right: '#F1EDE8' }));
     shapes.push(onX(px + 0.04, y - 0.1, y, beam - 0.004, beam, WHITE), poly([P(px + 0.04, y - 0.1, beam), P(px + 0.04, y, beam), P(px + 0.04, y, beam - 0.1)], WHITE));
     shapes.push(poly([P(px + 0.04, y + 0.04, beam), P(px + 0.04, y + 0.14, beam), P(px + 0.04, y + 0.04, beam - 0.1)], WHITE));
   }
   // Beam and a lacework frieze
-  shapes.push(...box(px - 0.01, ya, beam, 0.05, yb - ya, 0.05, WHITE, { right: '#F0EBE3' }));
+  shapes.push(...box(px - 0.01, ya, beam, 0.05, yb - ya, 0.05, WHITE, { right: '#F4F2ED' }));
   for (let y = ya + 0.06; y < yb - 0.04; y += 0.06) shapes.push(ball(px + 0.045, y, beam - 0.025, 0.012, WHITE));
   // The bullnose roof: corrugated iron curving down from the wall (tucked under the main roof's eaves) to the beam
   const top = FLOOR_Z + H - 0.04;
@@ -345,19 +345,19 @@ function garageShapes(x0, status) {
   const y0 = 0.05;
   const h = 0.55;
   const shapes = [
-    ...box(x0, y0, -SLAB, w, d, SLAB, SLAB_SIDE, { top: '#D7DADF' }),
-    ...box(x0, y0, 0, w, d, h, BOARD, { left: BOARD, right: shade(BOARD, -0.1), top: '#E8E0D6' }),
+    ...box(x0, y0, -SLAB, w, d, SLAB, SLAB_SIDE, { top: '#E1E3E6' }),
+    ...box(x0, y0, 0, w, d, h, BOARD, { left: BOARD, right: shade(BOARD, -0.1), top: '#EDE8E2' }),
   ];
   for (let z = 0.05; z < h; z += 0.055) shapes.push(onY(y0 + d, x0, x0 + w, z, z + 0.007, BOARD_LINE));
-  shapes.push(onY(y0 + d, x0 + 0.14, x0 + 0.96, 0, 0.44, '#C3C9D2'));
-  for (const z of [0.08, 0.16, 0.24, 0.32]) shapes.push(onY(y0 + d, x0 + 0.14, x0 + 0.96, z, z + 0.015, '#AEB5BF'));
+  shapes.push(onY(y0 + d, x0 + 0.14, x0 + 0.96, 0, 0.44, '#D0D4DA'));
+  for (const z of [0.08, 0.16, 0.24, 0.32]) shapes.push(onY(y0 + d, x0 + 0.14, x0 + 0.96, z, z + 0.015, '#BDC2C9'));
   // Skillion roof sloping to the back
   const r = [P(x0 - 0.05, y0 + d + 0.08, h + 0.02), P(x0 + w + 0.05, y0 + d + 0.08, h + 0.02), P(x0 + w + 0.05, y0 - 0.06, h + 0.2), P(x0 - 0.05, y0 - 0.06, h + 0.2)];
   shapes.push(poly(r, IRON_LIGHT));
   for (let x = x0; x < x0 + w + 0.04; x += 0.065) shapes.push(line([P(x, y0 + d + 0.08, h + 0.02), P(x, y0 - 0.06, h + 0.2)], IRON_RIB, 0.9));
   shapes.push(poly([P(x0 - 0.05, y0 + d + 0.08, h + 0.02), P(x0 + w + 0.05, y0 + d + 0.08, h + 0.02), P(x0 + w + 0.05, y0 + d + 0.08, h - 0.02), P(x0 - 0.05, y0 + d + 0.08, h - 0.02)], IRON_DARK));
   // A lamp over the roller door
-  shapes.push(ball(x0 + w / 2, y0 + d + 0.02, 0.5, 0.025, '#FFE3A0'), glow(x0 + w / 2, y0 + d + 0.02, 0.46, 0.3, 0.22));
+  shapes.push(ball(x0 + w / 2, y0 + d + 0.02, 0.5, 0.025, '#F9E6B9'), glow(x0 + w / 2, y0 + d + 0.02, 0.46, 0.3, 0.22));
   shapes.push(...statusOutline(r, status));
   return shapes;
 }
@@ -365,25 +365,25 @@ function garageShapes(x0, status) {
 function gardenShapes(x0, y0, w, status) {
   const d = 0.6;
   const shapes = [
-    ...box(x0, y0, -0.06, w, d, 0.1, '#A07655', { top: '#9ACB86' }),
+    ...box(x0, y0, -0.06, w, d, 0.1, '#AB896F', { top: '#AFDEBF' }),
     ...statusShapes([P(x0, y0, 0.04), P(x0 + w, y0, 0.04), P(x0 + w, y0 + d, 0.04), P(x0, y0 + d, 0.04)], status),
   ];
-  const flowers = ['#F2A7C0', '#FFD98A', '#FFFFFF', '#F2A7C0', '#FFD98A', '#C9B3EE'];
+  const flowers = ['#F0BDCE', '#F8DEA7', '#FFFFFF', '#F0BDCE', '#F8DEA7', '#D5C6EE'];
   for (let i = 0; i < 6; i++) {
     const fx = x0 + 0.15 + (i % 3) * (w - 0.3) / 2;
     const fy = y0 + 0.16 + Math.floor(i / 3) * 0.28;
-    shapes.push(ball(fx, fy, 0.13, 0.07, '#69AD63'), ball(fx, fy, 0.18, 0.035, flowers[i]));
+    shapes.push(ball(fx, fy, 0.13, 0.07, '#A7DBB8'), ball(fx, fy, 0.18, 0.035, flowers[i]));
   }
   // A frangipani
-  shapes.push(...box(x0 + w - 0.18, y0 + 0.2, 0.04, 0.05, 0.05, 0.28, '#8B6A4E'), ball(x0 + w - 0.15, y0 + 0.22, 0.46, 0.18, '#6CAF62'));
+  shapes.push(...box(x0 + w - 0.18, y0 + 0.2, 0.04, 0.05, 0.05, 0.28, '#9F7E62'), ball(x0 + w - 0.15, y0 + 0.22, 0.46, 0.18, '#A7DBB8'));
   for (const [dx, dy, dz] of [[-0.08, 0, 0.55], [0.05, 0.04, 0.5], [0.02, -0.06, 0.6], [-0.02, 0.07, 0.42]]) {
-    shapes.push(ball(x0 + w - 0.15 + dx, y0 + 0.22 + dy, dz, 0.035, '#FFF8E1'), ball(x0 + w - 0.15 + dx, y0 + 0.22 + dy, dz, 0.014, '#FFC94D'));
+    shapes.push(ball(x0 + w - 0.15 + dx, y0 + 0.22 + dy, dz, 0.035, '#FEFAEF'), ball(x0 + w - 0.15 + dx, y0 + 0.22 + dy, dz, 0.014, '#F4CD74'));
   }
   return shapes;
 }
 
 /**
- * A hipped roof of navy corrugated iron with a brick chimney (and a wisp of smoke). It sits on the walls; when the
+ * A hipped roof of coral corrugated iron with a brick chimney (and a wisp of smoke). It sits on the walls; when the
  * house is opened up, <House> lifts it up and back like a lid.
  */
 function roofShapes(x0, x1, depth, base, status) {
@@ -405,12 +405,12 @@ function roofShapes(x0, x1, depth, base, status) {
   const top = eave + rise + 0.37;
   const shapes = [
     // The far slopes first, catching the last of the sky
-    poly(backSlope, '#566E97'),
-    poly(backHip, '#4E668F'),
+    poly(backSlope, '#EF8B7F'),
+    poly(backHip, '#EE8377'),
     ...box(cx, cy, eave + 0.1, 0.18, 0.16, rise + 0.22, BRICK),
-    ...box(cx - 0.02, cy - 0.02, eave + rise + 0.32, 0.22, 0.2, 0.05, '#E9DCCB'),
-    ...box(cx + 0.03, cy + 0.03, top, 0.05, 0.05, 0.08, '#C3775A'),
-    ...box(cx + 0.11, cy + 0.03, top, 0.05, 0.05, 0.08, '#C3775A'),
+    ...box(cx - 0.02, cy - 0.02, eave + rise + 0.32, 0.22, 0.2, 0.05, '#EDE4D9'),
+    ...box(cx + 0.03, cy + 0.03, top, 0.05, 0.05, 0.08, '#C58E79'),
+    ...box(cx + 0.11, cy + 0.03, top, 0.05, 0.05, 0.08, '#C58E79'),
     ball(cx + 0.07, cy + 0.06, top + 0.2, 0.05, 'rgba(255, 255, 255, 0.55)', 'smoke s1'),
     ball(cx + 0.07, cy + 0.06, top + 0.2, 0.065, 'rgba(255, 255, 255, 0.45)', 'smoke s2'),
     ball(cx + 0.07, cy + 0.06, top + 0.2, 0.08, 'rgba(255, 255, 255, 0.35)', 'smoke s3'),
@@ -430,10 +430,10 @@ function roofShapes(x0, x1, depth, base, status) {
     line([r0, r1], CAPPING, 2.4), // ridge capping
     line([r1, P(x1, yb, eave)], CAPPING, 2), // hip capping
     line([r0, P(x0, yb, eave)], CAPPING, 2),
-    line([r1, P(x1, ya, eave)], '#B9C3D3', 1.6),
+    line([r1, P(x1, ya, eave)], '#FAD8D4', 1.6),
     poly([P(x0, yb, eave), P(x1, yb, eave), P(x1, yb, eave - 0.05), P(x0, yb, eave - 0.05)], WHITE), // fascia
     poly([P(x0, yb, eave - 0.05), P(x1, yb, eave - 0.05), P(x1, yb + 0.03, eave - 0.05), P(x0, yb + 0.03, eave - 0.05)], IRON_DARK), // gutter
-    poly([P(x1, ya, eave), P(x1, yb, eave), P(x1, yb, eave - 0.05), P(x1, ya, eave - 0.05)], '#EFEAE2'),
+    poly([P(x1, ya, eave), P(x1, yb, eave), P(x1, yb, eave - 0.05), P(x1, ya, eave - 0.05)], '#F4F1EC'),
   );
   shapes.push(...statusOutline(front, status));
   return shapes;
@@ -442,29 +442,29 @@ function roofShapes(x0, x1, depth, base, status) {
 /** A Hills Hoist in the backyard, with a towel on the line. */
 function hillsHoist(x, y) {
   const top = 0.62;
-  const shapes = [...box(x - 0.012, y - 0.012, -SLAB, 0.024, 0.024, top + SLAB, '#B9BEC4')];
+  const shapes = [...box(x - 0.012, y - 0.012, -SLAB, 0.024, 0.024, top + SLAB, '#C6CACE')];
   for (const r of [0.34, 0.24, 0.14]) {
-    shapes.push(line([P(x - r, y - r, top + 0.03), P(x + r, y - r, top + 0.03), P(x + r, y + r, top + 0.03), P(x - r, y + r, top + 0.03), P(x - r, y - r, top + 0.03)], '#C9CED4', 0.8));
+    shapes.push(line([P(x - r, y - r, top + 0.03), P(x + r, y - r, top + 0.03), P(x + r, y + r, top + 0.03), P(x - r, y + r, top + 0.03), P(x - r, y - r, top + 0.03)], '#D5D8DC', 0.8));
   }
-  for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) shapes.push(line([P(x, y, top), P(x + dx * 0.36, y + dy * 0.36, top + 0.04)], '#AEB3B9', 1.2));
-  shapes.push(poly([P(x + 0.04, y + 0.34, top + 0.03), P(x + 0.2, y + 0.34, top + 0.03), P(x + 0.2, y + 0.34, top - 0.1), P(x + 0.04, y + 0.34, top - 0.1)], '#F48FB1'));
-  shapes.push(poly([P(x - 0.3, y + 0.1, top + 0.03), P(x - 0.3, y + 0.24, top + 0.03), P(x - 0.3, y + 0.24, top - 0.07), P(x - 0.3, y + 0.1, top - 0.07)], '#8EC9F0'));
+  for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) shapes.push(line([P(x, y, top), P(x + dx * 0.36, y + dy * 0.36, top + 0.04)], '#BCC0C4', 1.2));
+  shapes.push(poly([P(x + 0.04, y + 0.34, top + 0.03), P(x + 0.2, y + 0.34, top + 0.03), P(x + 0.2, y + 0.34, top - 0.1), P(x + 0.04, y + 0.34, top - 0.1)], '#F0AAC1'));
+  shapes.push(poly([P(x - 0.3, y + 0.1, top + 0.03), P(x - 0.3, y + 0.24, top + 0.03), P(x - 0.3, y + 0.24, top - 0.07), P(x - 0.3, y + 0.1, top - 0.07)], '#A8D1ED'));
   return shapes;
 }
 
 /** A white picket fence along the front, with lamplit gateposts opening onto a brick path to the steps. */
 function fenceShapes(xf, ya, yb, n, door) {
-  const shapes = [poly([P(n + VW + 0.26, door - 0.105, 0), P(xf, door - 0.105, 0), P(xf, door + 0.105, 0), P(n + VW + 0.26, door + 0.105, 0)], '#D9B79A')];
+  const shapes = [poly([P(n + VW + 0.26, door - 0.105, 0), P(xf, door - 0.105, 0), P(xf, door + 0.105, 0), P(n + VW + 0.26, door + 0.105, 0)], '#DCC4AF')];
   shapes.push(pool(xf - 0.2, door, 0, 0.36));
   for (const [y0, y1] of [[ya, door - 0.135], [door + 0.135, yb]]) {
-    shapes.push(...box(xf, y0, 0.08, 0.02, y1 - y0, 0.025, WHITE, { right: '#EEE9E1' }));
+    shapes.push(...box(xf, y0, 0.08, 0.02, y1 - y0, 0.025, WHITE, { right: '#F3F0EB' }));
     for (let y = y0 + 0.01; y < y1 - 0.02; y += 0.055) {
       shapes.push(poly([P(xf + 0.02, y, -0.02), P(xf + 0.02, y + 0.03, -0.02), P(xf + 0.02, y + 0.03, 0.18), P(xf + 0.02, y + 0.015, 0.21), P(xf + 0.02, y, 0.18)], WHITE));
     }
   }
   for (const y of [door - 0.17, door + 0.135]) {
-    shapes.push(...box(xf - 0.005, y, -0.02, 0.035, 0.035, 0.28, WHITE, { right: '#EDE7DD' }));
-    shapes.push(...box(xf - 0.012, y - 0.007, 0.26, 0.05, 0.05, 0.065, '#FFE3A6', { left: '#FFE8B6', right: '#F5CC80', top: '#4A5E80' }));
+    shapes.push(...box(xf - 0.005, y, -0.02, 0.035, 0.035, 0.28, WHITE, { right: '#F1EEE8' }));
+    shapes.push(...box(xf - 0.012, y - 0.007, 0.26, 0.05, 0.05, 0.065, '#FAE7BE', { left: '#FBECCC', right: '#F0D39D', top: IRON }));
     shapes.push(glow(xf + 0.013, y + 0.017, 0.29, 0.2, 0.17));
   }
   return shapes;
@@ -472,8 +472,8 @@ function fenceShapes(xf, ya, yb, n, door) {
 
 function jacaranda(x, y) {
   return [
-    ...box(x - 0.03, y - 0.03, -SLAB, 0.06, 0.06, 0.62, '#7D5A40'),
-    ball(x, y, 0.72, 0.36, '#A38BD6'), ball(x - 0.12, y - 0.05, 0.86, 0.22, '#B9A5E6'), ball(x + 0.14, y + 0.06, 0.66, 0.2, '#957ECB'),
+    ...box(x - 0.03, y - 0.03, -SLAB, 0.06, 0.06, 0.62, '#936F54'),
+    ball(x, y, 0.72, 0.36, '#B4A3D8'), ball(x - 0.12, y - 0.05, 0.86, 0.22, '#C8BAE7'), ball(x + 0.14, y + 0.06, 0.66, 0.2, '#A897CE'),
   ];
 }
 
@@ -485,12 +485,12 @@ function islandShapes(xa, xb, ya, yb) {
   const ix = (xb - xa) * 0.1;
   const iy = (yb - ya) * 0.12;
   const apex = P((xa + xb) / 2 + 0.3, (ya + yb) / 2 + 0.2, bottom - 1.35);
-  shapes.push(poly([P(xa + ix, yb - iy, bottom), P(xb - ix, yb - iy, bottom), apex], '#BD9472'));
-  shapes.push(poly([P(xb - ix, ya + iy, bottom), P(xb - ix, yb - iy, bottom), apex], '#A07D60'));
-  shapes.push(...box(xa, ya, bottom, xb - xa, yb - ya, 0.32, '#C79D78', { top: 'url(#hs-grass)', left: '#CCA47F', right: '#B38B68' }));
+  shapes.push(poly([P(xa + ix, yb - iy, bottom), P(xb - ix, yb - iy, bottom), apex], '#C2A48C'));
+  shapes.push(poly([P(xb - ix, ya + iy, bottom), P(xb - ix, yb - iy, bottom), apex], '#A9907A'));
+  shapes.push(...box(xa, ya, bottom, xb - xa, yb - ya, 0.32, '#CBAC92', { top: 'url(#hs-grass)', left: '#CFB298', right: '#B99C83' }));
   // Grass lip
-  shapes.push(poly([P(xa, yb, top), P(xb, yb, top), P(xb, yb, top - 0.07), P(xa, yb, top - 0.07)], '#9ACB86'));
-  shapes.push(poly([P(xb, ya, top), P(xb, yb, top), P(xb, yb, top - 0.07), P(xb, ya, top - 0.07)], '#8BBC78'));
+  shapes.push(poly([P(xa, yb, top), P(xb, yb, top), P(xb, yb, top - 0.07), P(xa, yb, top - 0.07)], '#AFDEBF'));
+  shapes.push(poly([P(xb, ya, top), P(xb, yb, top), P(xb, yb, top - 0.07), P(xb, ya, top - 0.07)], '#ABDDBC'));
   return shapes;
 }
 
@@ -620,20 +620,20 @@ function Shape({ s }) {
 /** Gradients for the lamplight and the soft evening shading. */
 const Defs = () => html`<defs>
   <linearGradient id="hs-glass" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#FFEBB8" /><stop offset="1" stop-color="#F6BE63" />
+    <stop offset="0" stop-color="#FFF6D6" /><stop offset="1" stop-color="#FFD98A" />
   </linearGradient>
   <radialGradient id="hs-glow">
-    <stop offset="0" stop-color="#FFD58C" stop-opacity="0.7" /><stop offset="0.45" stop-color="#FFD58C" stop-opacity="0.28" />
-    <stop offset="1" stop-color="#FFD58C" stop-opacity="0" />
+    <stop offset="0" stop-color="#FFD98A" stop-opacity="0.7" /><stop offset="0.45" stop-color="#FFD98A" stop-opacity="0.28" />
+    <stop offset="1" stop-color="#FFD98A" stop-opacity="0" />
   </radialGradient>
   <radialGradient id="hs-pool">
-    <stop offset="0" stop-color="#FFE2A8" stop-opacity="0.6" /><stop offset="1" stop-color="#FFE2A8" stop-opacity="0" />
+    <stop offset="0" stop-color="#FFE9B0" stop-opacity="0.6" /><stop offset="1" stop-color="#FFE9B0" stop-opacity="0" />
   </radialGradient>
   <linearGradient id="hs-eave" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#6B5236" stop-opacity="0.24" /><stop offset="1" stop-color="#6B5236" stop-opacity="0" />
+    <stop offset="0" stop-color="#8A5A3A" stop-opacity="0.24" /><stop offset="1" stop-color="#8A5A3A" stop-opacity="0" />
   </linearGradient>
   <radialGradient id="hs-grass" cx="0.55" cy="0.45" r="0.7">
-    <stop offset="0" stop-color="#BFDFA6" /><stop offset="1" stop-color="#A5CF8F" />
+    <stop offset="0" stop-color="#C8F0D2" /><stop offset="1" stop-color="#A9E3BB" />
   </radialGradient>
 </defs>`;
 

@@ -100,38 +100,38 @@ export function SettingsView() {
     <//>
 
     <${Group} title="Lists" footer="These fill the quick-pick buttons when you add an expense.">
-      <${Row} icon="house" iconBg="#34C759" label="Rooms & stages" detail=${active(state.rooms)} onClick=${() => navigate('/settings/rooms')} />
-      <${Row} icon="tag" iconBg="#5856D6" label="Categories" detail=${active(state.categories)} onClick=${() => navigate('/settings/categories')} />
-      <${Row} icon="store" iconBg="#FF9500" label="Stores" detail=${state.stores.length} onClick=${() => navigate('/settings/stores')} />
+      <${Row} icon="house" iconBg="#1FB85A" label="Rooms & stages" detail=${active(state.rooms)} onClick=${() => navigate('/settings/rooms')} />
+      <${Row} icon="tag" iconBg="#7A5CF0" label="Categories" detail=${active(state.categories)} onClick=${() => navigate('/settings/categories')} />
+      <${Row} icon="store" iconBg="#FF8A3D" label="Stores" detail=${state.stores.length} onClick=${() => navigate('/settings/stores')} />
     <//>
 
     <${Group} title="Receipt reading"
       footer="Reads the store, date, total and each item from your receipts, then asks you to confirm. It all happens on this phone. Nothing is uploaded. It learns from the categories you pick. The app’s camera turns the iPhone’s light on, which helps with faded receipts. Switch it off to use the iPhone’s own camera.">
-      <${Row} icon="receipt" iconBg="#5E5CE6" label="Read receipts automatically">
+      <${Row} icon="receipt" iconBg="#7A5CF0" label="Read receipts automatically">
         <${Switch} label="Read receipts automatically" checked=${autoRead} onChange=${(on) => setPrefs({ autoRead: on })} />
       <//>
-      <${Row} icon="camera" iconBg="#FF9F0A" label="Use the app’s camera (light on)">
+      <${Row} icon="camera" iconBg="#FFA53D" label="Use the app’s camera (light on)">
         <${Switch} label="Use the app’s camera" checked=${state.prefs.appCamera !== false} onChange=${(on) => setPrefs({ appCamera: on })} />
       <//>
-      <${Row} icon="storage" iconBg="#8E8E93" label="Reader"
+      <${Row} icon="storage" iconBg="#8C7A9E" label="Reader"
         detail=${readerCached == null ? '…' : readerCached ? 'Ready offline' : 'Downloads on first use (7 MB)'} />
     <//>
 
     <${Group} title="Export" footer="A spreadsheet of your spending (Excel or CSV), for your records, your accountant or insurance. Add the receipt photos to send everything in one .zip.">
-      <${Row} icon="share" iconBg="#34C759" label="Export to Excel or CSV" onClick=${() => openExportSheet()} />
+      <${Row} icon="share" iconBg="#1FB85A" label="Export to Excel or CSV" onClick=${() => openExportSheet()} />
     <//>
 
     <${Group} title="Backup" footer=${`A backup is one .zip file with all your data and receipt photos. Save it to iCloud Drive or Files. It can be restored on this phone or a new one.${
       lastBackup && reminder.changes ? ` ${reminder.changes} ${reminder.changes === 1 ? 'change' : 'changes'} since your last backup.` : ''}`}>
-      <${Row} icon="backup" iconBg="#007AFF" label="Back up now" detail=${lastBackup ? `Last: ${formatTimestamp(lastBackup)}` : 'Never'} onClick=${runBackup} />
-      <${Row} icon="restore" iconBg="#8E8E93" label="Restore from a backup" onClick=${runRestore} />
+      <${Row} icon="backup" iconBg="#2F5BEA" label="Back up now" detail=${lastBackup ? `Last: ${formatTimestamp(lastBackup)}` : 'Never'} onClick=${runBackup} />
+      <${Row} icon="restore" iconBg="#8C7A9E" label="Restore from a backup" onClick=${runRestore} />
     <//>
 
     <${Group} title="This phone">
-      <${Row} icon="storage" iconBg="#30B0C7" label="Space used" detail=${storage?.used != null ? formatBytes(storage.used) : '…'} />
-      <${Row} icon="check" iconBg=${storage?.persisted || isStandalone() ? '#34C759' : '#FF9500'} label="Storage protected"
+      <${Row} icon="storage" iconBg="#1FA6B8" label="Space used" detail=${storage?.used != null ? formatBytes(storage.used) : '…'} />
+      <${Row} icon="check" iconBg=${storage?.persisted || isStandalone() ? '#1FB85A' : '#FF8A3D'} label="Storage protected"
         detail=${storage == null ? '…' : storage.persisted ? 'Yes' : isStandalone() ? 'Home Screen app' : 'Not guaranteed'} />
-      <${Row} icon="info" iconBg="#8E8E93" label="Version" detail=${APP_VERSION} />
+      <${Row} icon="info" iconBg="#8C7A9E" label="Version" detail=${APP_VERSION} />
     <//>
   <//>`;
 }
