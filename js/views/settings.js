@@ -10,11 +10,12 @@ import {
 } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
-import { isIOS, isStandalone } from '../device.js';
+import { isIOS, isStandalone, browserKind, installState, onInstallChange, promptInstall, shareLink } from '../device.js';
 import { APP_VERSION } from '../version.js';
 import { openRoomEditor, openCategoryEditor, openStoreEditor } from './editors.js';
 import { openExportSheet } from './export.js';
 import { backupReminder } from '../stats.js';
+import { GUIDE } from './setup.js';
 
 // ---------- Backup & restore (also used by first-run setup) ----------
 
@@ -44,6 +45,28 @@ export async function runRestore() {
     navigate('/', { replace: true });
     toast('Backup restored', { icon: 'check' });
   }
+}
+
+// ---------- Sharing the app ----------
+
+/**
+ * Sends a friend a link to the guide (which links to the app). Only the link goes: none of this phone's projects,
+ * receipts or numbers.
+ */
+export async function shareWithFriend() {
+  const url = new URL(GUIDE, location.href).href;
+  const text = 'I’m using Reno Tracker to keep track of what our reno is costing. It’s free, there’s no sign-up, '
+    + 'and everything stays on your own phone. Here’s how to install it:';
+  const result = await shareLink({ title: 'Reno Tracker', text, url });
+  if (result === 'copied') toast('Link copied. Paste it into a message to your friend.', { icon: 'check' });
+  if (result === 'failed') toast(`Send your friend this link: ${url}`, { duration: 20000 });
+}
+
+/** On Android, while it's open in the browser rather than installed: Chrome's install offer, if it has made one. */
+function useInstallState() {
+  const [value, setValue] = useState(installState());
+  useEffect(() => onInstallChange(() => setValue(installState())), []);
+  return value;
 }
 
 // ---------- Main settings screen ----------
@@ -81,6 +104,9 @@ export function SettingsView() {
   useStore();
   const storage = useStorageInfo();
   const readerCached = useReaderCached();
+  const install = useInstallState();
+  const browser = browserKind();
+  const android = browser === 'android' || browser === 'samsung';
   const autoRead = state.prefs.autoRead !== false;
   const lastBackup = state.prefs.lastBackupAt;
   const reminder = backupReminder(state, lastBackup);
@@ -93,6 +119,13 @@ export function SettingsView() {
     ${isIOS() && !isStandalone() && html`<div class="callout warn">
       <${Icon} name="alert" size=${20} />
       <span>You’re using Reno Tracker in a Safari tab. Add it to your Home Screen so Safari can’t clear your receipts. Tap Share, then <strong>Add to Home Screen</strong>.</span>
+    </div>`}
+    ${android && !isStandalone() && install !== 'installed' && html`<div class="callout">
+      <${Icon} name="addSquare" size=${20} />
+      <span>Install Reno Tracker so it opens like an app, from its own icon.${install === 'offer' ? ''
+        : browser === 'samsung' ? html` Tap <strong>≡</strong>, then <strong>Add page to</strong> → <strong>Home screen</strong>.`
+        : html` In Chrome, tap the menu <strong>⋮</strong>, then <strong>Install app</strong>.`}</span>
+      ${install === 'offer' && html`<button class="pill-btn" onClick=${promptInstall}>Install</button>`}
     </div>`}
 
     <${Group} title="Project">
@@ -125,6 +158,11 @@ export function SettingsView() {
       lastBackup && reminder.changes ? ` ${reminder.changes} ${reminder.changes === 1 ? 'change' : 'changes'} since your last backup.` : ''}`}>
       <${Row} icon="backup" iconBg="#2F5BEA" label="Back up now" detail=${lastBackup ? `Last: ${formatTimestamp(lastBackup)}` : 'Never'} onClick=${runBackup} />
       <${Row} icon="restore" iconBg="#8C7A9E" label="Restore from a backup" onClick=${runRestore} />
+    <//>
+
+    <${Group} title="Share" footer="Sends a link to the app and a short guide on installing and using it. None of your projects, receipts or numbers go with it: your friend’s copy starts empty.">
+      <${Row} icon="friends" iconBg="#E8336F" label="Share with a friend" onClick=${shareWithFriend} />
+      <${Row} icon="book" iconBg="#7A5CF0" label="How to install and use" onClick=${() => { location.href = `${GUIDE}?from=app`; }} />
     <//>
 
     <${Group} title="This phone">

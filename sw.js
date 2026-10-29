@@ -2,7 +2,7 @@
 // When VERSION changes, phones download the new files and the app offers an "Update" button.
 // Your data is NOT stored here. It lives in the app's database and is never touched by updates.
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 const CACHE = `reno-tracker-${VERSION}`;
 
 // The receipt reader is big (~7 MB), so it isn't downloaded with the app. Each file is fetched the
@@ -20,8 +20,10 @@ const READER_FILES = [
 const FILES = [
   './',
   'index.html',
+  'guide.html',
   'manifest.webmanifest',
   'css/app.css',
+  'css/guide.css',
   'icons/icon.svg',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
@@ -102,7 +104,9 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     if (request.mode === 'navigate') {
-      return (await cache.match('index.html')) || fetch(request);
+      // Pages we keep (the app, the friends' guide) open as themselves; any other address opens the app.
+      return (await cache.match(request, { ignoreSearch: true, ignoreVary: true }))
+        || (await cache.match('index.html')) || fetch(request);
     }
     return (await cache.match(request, { ignoreSearch: true })) || fetch(request);
   })());

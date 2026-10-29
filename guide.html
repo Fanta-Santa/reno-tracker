@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Reno Tracker: how to install and use it</title>
+  <meta name="description" content="A free app for tracking what your renovation costs. How to add it to your phone and use it. Your receipts stay on your own phone.">
+  <meta name="theme-color" content="#fbfbfb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Reno">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="vendor/fonts/albert-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/guide.css">
+  <script>
+    // If this page was added to the Home Screen by mistake, open the app instead. (From inside the app, the link
+    // says ?from=app, so the guide stays.)
+    if ((matchMedia('(display-mode: standalone)').matches || navigator.standalone === true)
+      && new URLSearchParams(location.search).get('from') !== 'app') location.replace('./');
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 14.5V3.5M8 7l4-4 4 4M6.5 10.5H6A1.5 1.5 0 0 0 4.5 12v7A1.5 1.5 0 0 0 6 20.5h12a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5h-.5" /></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><path d="M5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-13A1.5 1.5 0 0 1 5.5 4ZM12 8.5v7M8.5 12h7" /></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><path d="M6 12h.01M12 12h.01M18 12h.01" stroke-width="3" /></symbol>
+    <symbol id="i-dots-v" viewBox="0 0 24 24"><path d="M12 6h.01M12 12h.01M12 18h.01" stroke-width="3" /></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5a1.5 1.5 0 0 1 1.5-1.5h2.2L9.2 5h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9ZM12 16a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" /></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 13.5 6.2 5.6A1.5 1.5 0 0 1 7.6 4.5h8.8a1.5 1.5 0 0 1 1.4 1.1l2.2 7.9V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-4.5ZM4 13.5h4.5l1 2h5l1-2H20" /></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><path d="M12 20v-7M12 13 6 7M12 13l6-6M6 7V3.5M6 7H2.5M18 7V3.5M18 7h3.5" /></symbol>
+    <symbol id="i-quote" viewBox="0 0 24 24"><path d="M7 3.5h7.5L19 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1ZM14 3.5V8h5M9.5 12.5h6M9.5 16h4" /></symbol>
+    <symbol id="i-house" viewBox="0 0 24 24"><path d="M3.5 11.2 12 4l8.5 7.2M5.8 9.4V19a1 1 0 0 0 1 1h3.7v-5.2h3V20h3.7a1 1 0 0 0 1-1V9.4" /></symbol>
+    <symbol id="i-backup" viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.6 1.5h.2a3.7 3.7 0 0 1 0 7.5M12 12v8M9 15l3-3 3 3" /></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.6 1.5h.2a3.7 3.7 0 0 1 0 7.5M12 20v-8M9 17l3 3 3-3" /></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15M9.5 6.5V4.8a.8.8 0 0 1 .8-.8h3.4a.8.8 0 0 1 .8.8v1.7M6.5 6.5l.8 12.2a1.4 1.4 0 0 0 1.4 1.3h6.6a1.4 1.4 0 0 0 1.4-1.3l.8-12.2M10 10.5v6M14 10.5v6" /></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 3 5.5 13.5h6l-1 7.5 8-10.5h-6l1-7.5Z" /></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3v-17ZM9 8h6M9 11.5h6M9 15h3.5" /></symbol>
+  </svg>
+
+  <main class="guide">
+    <header class="guide-hero">
+      <img class="setup-icon" src="icons/icon.svg" alt="" width="120" height="120">
+      <h1>Reno Tracker</h1>
+      <p class="guide-lead">A free app for keeping track of what your renovation costs. Snap your receipts, split them
+        across rooms, and see what you’ve spent against your budget.</p>
+      <a class="wide-btn primary open-app" href="./">Open Reno Tracker</a>
+      <p class="guide-tags">Free · No sign-up · Works offline</p>
+    </header>
+
+    <section class="glass-card guide-card" aria-labelledby="private">
+      <h2 id="private">Your receipts stay on your phone</h2>
+      <ul class="guide-tips">
+        <li><span class="row-icon" style="background:#1FB85A"><svg class="gi"><use href="#i-house" /></svg></span>
+          <p><strong>No account, no sign-up.</strong> Just open it and start.</p></li>
+        <li><span class="row-icon" style="background:#7A5CF0"><svg class="gi"><use href="#i-receipt" /></svg></span>
+          <p><strong>Everything is saved on your phone only.</strong> Nothing is uploaded. Whoever sent you this can’t see
+            your receipts, and you can’t see theirs.</p></li>
+        <li><span class="row-icon" style="background:#2F5BEA"><svg class="gi"><use href="#i-camera" /></svg></span>
+          <p><strong>Receipts are read on your phone too.</strong> The app reads the store, date and total itself, without
+            sending your photos anywhere.</p></li>
+      </ul>
+    </section>
+
+    <section class="glass-card guide-card" id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Add it to your phone</h2>
+      <p>It takes about two minutes. After that it has its own icon, opens like an app and works offline.</p>
+      <div class="segmented platform" role="tablist" aria-label="Your phone" style="--count: 2; --index: 0">
+        <span class="segmented-thumb"></span>
+        <button role="tab" id="tab-iphone" aria-controls="steps-iphone" aria-selected="true" class="active">iPhone</button>
+        <button role="tab" id="tab-android" aria-controls="steps-android" aria-selected="false">Android</button>
+      </div>
+
+      <ol class="install-steps" id="steps-iphone" role="tabpanel" aria-labelledby="tab-iphone">
+        <li><span class="install-num">1</span><span>Open the link in <strong>Safari</strong>. If it opened inside another
+          app, like Facebook, Instagram or Gmail, tap <strong>•••</strong> or the compass and choose
+          <strong>Open in Safari</strong>.</span></li>
+        <li><span class="install-num">2</span><span>Tap <strong>Open Reno Tracker</strong> at the top of this page.</span></li>
+        <li><span class="install-num">3</span><span>Tap <strong>Share</strong> <svg class="gi inline"><use href="#i-share" /></svg>.
+          If you can’t see it, tap <strong>•••</strong> first.</span></li>
+        <li><span class="install-num">4</span><span>Scroll down and tap <strong>Add to Home Screen</strong>
+          <svg class="gi inline"><use href="#i-add" /></svg>.</span></li>
+        <li><span class="install-num">5</span><span>Leave <strong>Open as Web App</strong> switched on, then tap
+          <strong>Add</strong>.</span></li>
+        <li><span class="install-num">6</span><span>Open <strong>Reno</strong> from your Home Screen. Always use the icon:
+          anything you add in a Safari tab is kept separately.</span></li>
+      </ol>
+
+      <ol class="install-steps" id="steps-android" role="tabpanel" aria-labelledby="tab-android">
+        <li><span class="install-num">1</span><span>Open the link in <strong>Chrome</strong>.</span></li>
+        <li><span class="install-num">2</span><span>Tap <strong>Open Reno Tracker</strong> at the top of this page.</span></li>
+        <li><span class="install-num">3</span><span>Tap <strong>Install</strong> when it offers. Or tap the menu
+          <svg class="gi inline"><use href="#i-dots-v" /></svg> at the top right, then <strong>Install app</strong> (on some
+          phones it’s <strong>Add to Home screen</strong>, then <strong>Install</strong>).</span></li>
+        <li><span class="install-num">4</span><span>Open <strong>Reno</strong> from your home screen or your list of
+          apps.</span></li>
+        <li class="install-note">Using Samsung Internet? Tap <strong>≡</strong>, then <strong>Add page to</strong> →
+          <strong>Home screen</strong>.</li>
+      </ol>
+    </section>
+
+    <section class="glass-card guide-card" aria-labelledby="start">
+      <h2 id="start">Set up your project</h2>
+      <ol class="guide-numbered">
+        <li><strong>Name it</strong>, like “Smith St reno”.</li>
+        <li><strong>Pick your rooms and stages:</strong> kitchen, bathroom, painting, the deck… Rename them or add your own.</li>
+        <li><strong>Add budgets if you like.</strong> They’re optional, and you can change them any time in Settings.</li>
+      </ol>
+      <p>Moving from another phone? Choose <strong>Restore from a backup</strong> instead.</p>
+    </section>
+
+    <section class="glass-card guide-card" aria-labelledby="use">
+      <h2 id="use">Everyday use</h2>
+      <ul class="guide-tips">
+        <li><span class="row-icon" style="background:#E8336F"><svg class="gi"><use href="#i-camera" /></svg></span>
+          <p><strong>Snap a receipt.</strong> Tap <strong>＋</strong>, then <strong>Snap receipt</strong>. The app reads the
+            store, date, total and each item, then shows you a few cards to check. Swipe right when it’s right.</p></li>
+        <li><span class="row-icon" style="background:#2F5BEA"><svg class="gi"><use href="#i-inbox" /></svg></span>
+          <p><strong>In a hurry?</strong> Use <strong>Quick snap</strong> and sort it later. It waits for you in the
+            inbox.</p></li>
+        <li><span class="row-icon" style="background:#FF8A3D"><svg class="gi"><use href="#i-split" /></svg></span>
+          <p><strong>Split a receipt.</strong> One Bunnings run for the kitchen and the bathroom? Split it by room and
+            category. Tools get their own tag.</p></li>
+        <li><span class="row-icon" style="background:#7A5CF0"><svg class="gi"><use href="#i-quote" /></svg></span>
+          <p><strong>Quotes and bills.</strong> Log a tradie’s quote, accept it, then record the deposit and the final
+            payment. Add a due date and it shows on the dashboard.</p></li>
+        <li><span class="row-icon" style="background:#1FB85A"><svg class="gi"><use href="#i-house" /></svg></span>
+          <p><strong>The dashboard.</strong> Tap the house to lift the roof and see each room:
+            <span class="nowrap"><span class="status-badge s-ok inline">✓</span>on track,</span>
+            <span class="nowrap"><span class="status-badge s-near inline">!</span>nearly at budget,</span>
+            <span class="nowrap"><span class="status-badge s-over inline">‼</span>over budget.</span></p></li>
+        <li><span class="row-icon" style="background:#1FA6B8"><svg class="gi"><use href="#i-share" /></svg></span>
+          <p><strong>Export.</strong> Settings → <strong>Export to Excel or CSV</strong>, for your records or your
+            accountant.</p></li>
+      </ul>
+    </section>
+
+    <section class="glass-card guide-card" aria-labelledby="safe">
+      <h2 id="safe">Keep your receipts safe</h2>
+      <ul class="guide-tips">
+        <li><span class="row-icon" style="background:#2F5BEA"><svg class="gi"><use href="#i-backup" /></svg></span>
+          <p><strong>Back up now and then.</strong> Settings → <strong>Back up now</strong> saves one file with everything,
+            receipt photos included. Keep it in iCloud Drive, Google Drive or Files. The app reminds you when it’s
+            time.</p></li>
+        <li><span class="row-icon" style="background:#C81E43"><svg class="gi"><use href="#i-trash" /></svg></span>
+          <p><strong>Deleting the app’s icon deletes everything in it</strong>, just like any app. Back up first.</p></li>
+        <li><span class="row-icon" style="background:#8C7A9E"><svg class="gi"><use href="#i-restore" /></svg></span>
+          <p><strong>New phone?</strong> Back up on the old one, add the app to the new one, then choose <strong>Restore
+            from a backup</strong>.</p></li>
+        <li><span class="row-icon" style="background:#FFA53D"><svg class="gi"><use href="#i-bolt" /></svg></span>
+          <p><strong>Updates arrive by themselves.</strong> When it says a new version is ready, tap
+            <strong>Update</strong>. Your receipts stay put.</p></li>
+      </ul>
+    </section>
+
+    <section class="glass-card guide-card" aria-labelledby="faq">
+      <h2 id="faq">Questions</h2>
+      <div class="guide-faq">
+        <details>
+          <summary>Does it cost anything?</summary>
+          <p>No. It’s free, with no ads and no subscription.</p>
+        </details>
+        <details>
+          <summary>Who can see my receipts?</summary>
+          <p>Only you. They’re stored on your phone, and the app has nowhere to send them.</p>
+        </details>
+        <details>
+          <summary>Can two of us share a project?</summary>
+          <p>Not live. Each phone keeps its own copy, and they don’t sync. You can give someone a copy by sending them a
+            backup to restore, but changes after that stay on each phone.</p>
+        </details>
+        <details>
+          <summary>I can’t see “Add to Home Screen”</summary>
+          <p>The link has probably opened inside another app, or in a browser other than Safari. Open it in
+            <strong>Safari</strong> (on Android, <strong>Chrome</strong>) and try again.</p>
+        </details>
+        <details>
+          <summary>The camera won’t open</summary>
+          <p>Tap <strong>Allow</strong> when it asks to use the camera. If you tapped Don’t Allow, open your iPhone’s
+            Settings, find <strong>Safari</strong>, then <strong>Camera</strong>, and choose <strong>Ask</strong>. Or,
+            in the app’s Settings, switch off <strong>Use the app’s camera</strong> to use the iPhone’s own camera
+            instead.</p>
+        </details>
+        <details>
+          <summary>Does it work without internet?</summary>
+          <p>Yes, once it’s on your phone. The first time you snap a receipt it downloads the receipt reader (about
+            7 MB), so Wi-Fi is best for that.</p>
+        </details>
+      </div>
+    </section>
+
+    <footer class="guide-foot">
+      <a class="wide-btn primary open-app" href="./">Open Reno Tracker</a>
+      <p>Got a question? Ask whoever sent you this link.</p>
+    </footer>
+  </main>
+
+  <script>
+    // Shows the steps for this phone (iPhone or Android), and switches between them. Opened from inside the app,
+    // the buttons go back to it.
+    (() => {
+      const tabs = [...document.querySelectorAll('.platform [role="tab"]')];
+      const bar = document.querySelector('.platform');
+      const show = (tab) => {
+        tabs.forEach((t, i) => {
+          const on = t === tab;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', String(on));
+          t.tabIndex = on ? 0 : -1;
+          document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+          if (on) bar.style.setProperty('--index', i);
+        });
+      };
+      tabs.forEach((t) => t.addEventListener('click', () => show(t)));
+      bar.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const next = tabs[(tabs.indexOf(document.activeElement) + 1) % tabs.length];
+        show(next);
+        next.focus();
+      });
+      show(/Android/.test(navigator.userAgent) ? tabs[1] : tabs[0]);
+
+      if (new URLSearchParams(location.search).get('from') === 'app') {
+        for (const a of document.querySelectorAll('.open-app')) {
+          a.textContent = 'Back to the app';
+          a.href = './#/settings';
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+/* The friends' guide (guide.html): the app's Glass look (css/app.css), laid out as one easy-to-read page. */
+
+.guide {
+  max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px;
+  padding: calc(var(--safe-top) + 40px) var(--gutter) calc(var(--safe-bottom) + 40px);
+}
+
+.guide-hero { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 0 4px 8px; }
+.guide-hero .setup-icon { width: 120px; height: 120px; border-radius: 28px; margin-bottom: 6px; }
+.guide-hero h1 { font-family: var(--font-display); font-size: 44px; font-weight: 700; letter-spacing: -0.04em; line-height: 1.05; }
+.guide-lead { max-width: 420px; font-size: 18px; color: var(--text-2); }
+.guide-hero .wide-btn, .guide-foot .wide-btn { max-width: 320px; margin-top: 6px; }
+.guide-tags { font-size: 14px; font-weight: 700; color: var(--text-2); }
+
+.guide-card { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.guide-card h2 { font-family: var(--font-display); font-size: 25px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+.guide-card > p { color: var(--text-2); }
+.guide-card strong { color: var(--text); }
+
+/* Line icons from the app, drawn from the sprite at the top of the page */
+.gi { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.gi.inline { display: inline-block; vertical-align: -3px; color: var(--accent); }
+
+.guide-tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.guide-tips li { display: flex; align-items: flex-start; gap: 12px; }
+.guide-tips .row-icon { margin-top: 1px; }
+.guide-tips p { color: var(--text-2); }
+.guide-tips .status-badge.inline { margin: 0 4px 0 2px; }
+.nowrap { white-space: nowrap; }
+
+.guide .platform { margin: 2px 0; }
+.guide-card .install-steps { margin: 0; }
+.guide-card .install-steps li {
+  background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.guide-card .install-steps li.install-note { display: block; background: none; border: 0; padding: 2px 4px; color: var(--text-2); font-size: 15px; }
+.guide-card .install-steps[hidden] { display: none; }
+
+.guide-numbered { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; color: var(--text-2); }
+.guide-numbered li::marker { font-family: var(--font-display); font-weight: 700; color: var(--accent); }
+
+.guide-faq details { border-top: 1px solid rgba(255, 255, 255, 0.9); }
+.guide-faq details:first-child { border-top: 0; }
+.guide-faq summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; min-height: 44px;
+  font-weight: 700; cursor: pointer; list-style: none;
+}
+.guide-faq summary::-webkit-details-marker { display: none; }
+.guide-faq summary::after {
+  content: ""; flex: none; width: 9px; height: 9px; margin-right: 4px; border: solid var(--text-2); border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-3px); transition: transform 0.25s var(--spring);
+}
+.guide-faq details[open] summary::after { transform: rotate(-135deg) translate(-2px, -1px); }
+.guide-faq details p { padding: 0 0 14px; color: var(--text-2); }
+
+.guide-foot { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; color: var(--text-2); font-size: 15px; padding-top: 4px; }

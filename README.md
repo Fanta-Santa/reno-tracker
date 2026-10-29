@@ -5,6 +5,8 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 
 **Open it:** https://fanta-santa.github.io/reno-tracker/ (in Safari on iPhone, then Share → Add to Home Screen)
 
+**For friends:** send them https://fanta-santa.github.io/reno-tracker/guide.html, or use Settings → Share with a friend.
+
 ## What's in it so far (Stage 1)
 
 - First-run setup: name the project and pick rooms/stages, each with an optional budget and a type
@@ -89,7 +91,22 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   isn't installed).
 - The app icon is a budget ring: a glass ring filling up as you spend, with the house in the middle.
 
-Coming next: the install guide for friends, and dark mode.
+## Sharing with friends (Stage 5)
+
+- A short guide to send a friend: `guide.html` (https://fanta-santa.github.io/reno-tracker/guide.html). It explains
+  that their receipts stay on their own phone, how to add the app to an iPhone or Android phone, setting up a project,
+  everyday use, keeping receipts safe with backups, and common questions. It opens the right steps for their phone.
+- Settings → **Share with a friend** sends a short message and the guide's link through the Share sheet (or copies it).
+  Only the link goes: none of your projects, receipts or numbers. **How to install and use** opens the guide.
+- The first screen on a phone now matches where the link was opened:
+  - **Safari on iPhone:** Share → Add to Home Screen.
+  - **Inside another app** (Facebook, Instagram, Gmail…), which can't add to the Home Screen: how to open it in Safari or
+    Chrome, with a Copy link button.
+  - **Another iPhone browser:** copy the link into Safari.
+  - **Android:** Chrome's own Install button when it offers one, otherwise the menu steps (and Samsung Internet's).
+- Settings on Android shows an Install reminder while it's open in the browser.
+
+Coming next: dark mode.
 
 ## How it's built
 
@@ -98,6 +115,7 @@ Plain HTML, CSS and JavaScript with no build step. Opening `index.html` through 
 | Path | What it is |
 |---|---|
 | `index.html`, `css/app.css` | Page shell and all the styling |
+| `guide.html`, `css/guide.css` | The guide for friends: installing and using the app |
 | `icons/` | The app icon: `icon.svg`, and the PNGs drawn from it by `node tools/make-icons.mjs` |
 | `js/main.js` | Starts the app, picks the screen, draws the tab bar |
 | `js/store.js`, `js/db.js` | Your data, saved in the phone's built-in database (IndexedDB) |

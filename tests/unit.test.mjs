@@ -11,6 +11,7 @@ import {
 } from '../js/format.js';
 import { createZip, readZip, crc32 } from '../js/zip.js';
 import { buildSheets, numberItems, toCSV, toXLSX, xlsxEntries, financialYear, cleanName } from '../js/export.js';
+import { browserKind } from '../js/device.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -190,7 +191,8 @@ test('the offline cache lists every app file, and versions match', () => {
     const rel = `${dir}/${name}`;
     return statSync(join(ROOT, rel)).isDirectory() ? walk(rel) : [rel];
   });
-  const appFiles = [...walk('js'), ...walk('css'), ...walk('icons'), ...walk('vendor')]
+  const pages = readdirSync(ROOT).filter((f) => f.endsWith('.html'));
+  const appFiles = [...pages, ...walk('js'), ...walk('css'), ...walk('icons'), ...walk('vendor')]
     .filter((f) => /\.(js|mjs|css|png|svg|woff2)$/.test(f) && !f.startsWith('vendor/tesseract/'));
   for (const f of appFiles) assert.ok(files.has(f), `sw.js FILES is missing ${f}`);
   // The big receipt-reader files are fetched on first use, not with every update.
@@ -232,4 +234,41 @@ test('every colour and size token the stylesheet uses is defined', () => {
   // A few are set from JavaScript, per element.
   for (const name of ['--count', '--index']) defined.add(name);
   for (const name of used) assert.ok(defined.has(name), `css/app.css uses var(${name}) but never defines it`);
+});
+
+test('install steps match where the link was opened', () => {
+  const UA = {
+    safari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1',
+    chromeIOS: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/138.0.7204.119 Mobile/15E148 Safari/604.1',
+    instagram: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 390.0.0.28.85 (iPhone15,3; iOS 18_5; en_AU; en-AU; scale=3.00; 1290x2796; 717468813)',
+    facebook: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/521.0.0.42.97;FBBV/744000000;FBDV/iPhone15,3;FBMD/iPhone;FBSN/iOS;FBSV/18.5;FBSS/3;FBID/phone;FBLC/en_GB;FBOP/5]',
+    googleApp: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/380.0.775339457 Mobile/15E148 Safari/604.1',
+    androidChrome: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Mobile Safari/537.36',
+    samsung: 'Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36',
+    androidFacebook: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/AP2A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/138.0.0.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/521.0.0.48.108;]',
+    mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+    windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+  };
+  assert.equal(browserKind(UA.safari, true), 'safari');
+  assert.equal(browserKind(UA.mac, true), 'safari', 'an iPad asks for the desktop site but is still iPadOS Safari');
+  assert.equal(browserKind(UA.chromeIOS, true), 'ios-other');
+  assert.equal(browserKind(UA.instagram, true), 'in-app');
+  assert.equal(browserKind(UA.facebook, true), 'in-app');
+  assert.equal(browserKind(UA.googleApp, true), 'in-app');
+  assert.equal(browserKind(UA.androidChrome, false), 'android');
+  assert.equal(browserKind(UA.samsung, false), 'samsung');
+  assert.equal(browserKind(UA.androidFacebook, false), 'in-app');
+  assert.equal(browserKind(UA.mac, false), 'computer');
+  assert.equal(browserKind(UA.windows, false), 'computer');
+});
+
+test('the pages only use relative links (the site lives at /reno-tracker/)', () => {
+  for (const page of ['index.html', 'guide.html']) {
+    const html = readFileSync(join(ROOT, page), 'utf8');
+    assert.doesNotMatch(html, /(?:href|src)="\/(?!\/)/, `${page} has a link starting with /`);
+  }
+  // The friends' guide links to the app, and keeps the app's icon and manifest in case it's added to a Home Screen.
+  const guide = readFileSync(join(ROOT, 'guide.html'), 'utf8');
+  assert.match(guide, /href="\.\/"/);
+  assert.match(guide, /rel="manifest" href="manifest.webmanifest"/);
 });

@@ -1,19 +1,22 @@
-// First run: (on iPhone) how to install to the Home Screen, then name the project and add rooms.
+// First run: (on a phone) how to install it to the Home Screen, then name the project and add rooms.
 
-import { html, useState } from '../lib.js';
+import { html, useEffect, useState } from '../lib.js';
 import { createProject } from '../store.js';
 import { SUGGESTED_ROOMS, roomType } from '../defaults.js';
 import { formatMoney } from '../format.js';
-import { Switch } from '../ui/kit.js';
+import { Switch, toast } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { openRoomEditor } from './editors.js';
 import { runRestore } from './settings.js';
-import { isIOS, isStandalone } from '../device.js';
+import { isIOS, browserKind, needsInstall, installState, onInstallChange, promptInstall, shareLink } from '../device.js';
 
 let skippedInstall = false;
 
+/** The friends' guide (how to install and use the app), next to the app itself. */
+export const GUIDE = 'guide.html';
+
 export function SetupView() {
-  const [step, setStep] = useState(isIOS() && !isStandalone() && !skippedInstall ? 'install' : 'welcome');
+  const [step, setStep] = useState(needsInstall() && !skippedInstall ? 'install' : 'welcome');
   const [name, setName] = useState('');
   const [rooms, setRooms] = useState(() => SUGGESTED_ROOMS.map((r, i) => ({ ...r, key: i, on: true, budgetCents: null })));
   const [saving, setSaving] = useState(false);
@@ -31,6 +34,7 @@ export function SetupView() {
         <button class="wide-btn primary" onClick=${() => setStep('name')}>Start a new project</button>
         <button class="wide-btn secondary" onClick=${runRestore}><${Icon} name="restore" size=${20} /> Restore from a backup</button>
         <p class="fine-print">Everything stays on this phone. There are no accounts and nothing is uploaded.</p>
+        <a class="link-btn small guide-link" href=${GUIDE}><${Icon} name="book" size=${18} /> How it works, in 2 minutes</a>
       </div>
     </div>`;
   }
@@ -97,22 +101,100 @@ export function SetupView() {
   </div>`;
 }
 
+const Step = ({ n, children }) => html`<li><span class="install-num">${n}</span><span>${children}</span></li>`;
+
+/** Copies the app's link, to paste into Safari (or Chrome) when it was opened somewhere that can't install it. */
+async function copyAppLink() {
+  const url = new URL('./', location.href).href;
+  const result = await shareLink({ title: 'Reno Tracker', text: '', url, copyOnly: true });
+  if (result === 'copied') toast('Link copied. Now paste it into the address bar.', { icon: 'check' });
+  else toast(`Copy this link: ${url}`, { duration: 20000 });
+}
+
+/**
+ * Before setup on a phone: how to install the app from wherever the link was opened. Safari on iPhone gets the
+ * Share → Add to Home Screen steps; a preview inside another app (Facebook, Instagram, Gmail…) or another iPhone
+ * browser is sent to Safari first; Android gets Chrome's Install button, or the menu steps.
+ */
 function InstallGuide({ onSkip }) {
+  const kind = browserKind();
+  const [install, setInstall] = useState(installState());
+  useEffect(() => onInstallChange(() => setInstall(installState())), []);
+  const ios = isIOS();
+  const browser = ios ? 'Safari' : 'Chrome';
+  const homeScreen = ios ? 'Home Screen' : 'home screen';
+
+  let title = 'Add it to your Home Screen first';
+  let intro = html`This turns the page into an app with its own icon. It also keeps your receipts safe: Safari can clear
+    data from websites you haven’t visited for a while, but not from Home Screen apps.`;
+  let steps = null;
+  let action = null;
+  let skip = 'Continue in Safari anyway';
+  let note = 'Anything you enter here in Safari stays separate from the Home Screen app.';
+
+  if (kind === 'safari') {
+    steps = [
+      html`Tap the <strong>Share</strong> button <${Icon} name="share" size=${18} /> in Safari. If you can’t see it, tap <strong>•••</strong> first.`,
+      html`Scroll down and tap <strong>Add to Home Screen</strong> <${Icon} name="addSquare" size=${18} />.`,
+      html`Leave <strong>Open as Web App</strong> switched on, then tap <strong>Add</strong>.`,
+      html`Open <strong>Reno</strong> from your Home Screen and set up your project there.`,
+    ];
+  } else if (kind === 'in-app') {
+    title = `Open this in ${browser} first`;
+    intro = `You’re looking at this inside another app, which can’t add it to your ${homeScreen}. Open it in ${browser} instead.`;
+    steps = [
+      html`Tap <strong>•••</strong> or the menu, at the top or bottom of the screen.`,
+      html`Choose <strong>Open in ${browser}</strong>. It might say <strong>Open in browser</strong>.`,
+      html`Then follow the steps there to add it to your ${homeScreen}.`,
+    ];
+    action = html`<button class="wide-btn secondary" onClick=${copyAppLink}><${Icon} name="copy" size=${20} /> Or copy the link</button>`;
+    skip = 'Continue here anyway';
+    note = 'Apps like this can clear what you add here, so your receipts might not be kept.';
+  } else if (kind === 'ios-other') {
+    title = 'Open this in Safari first';
+    intro = 'On iPhone, Safari is the surest way to add it to your Home Screen, where your receipts are kept safe.';
+    steps = [
+      html`Tap <strong>Copy the link</strong> below.`,
+      html`Open <strong>Safari</strong>, tap the address bar, paste the link and go.`,
+      html`Tap <strong>Share</strong> <${Icon} name="share" size=${18} />, then <strong>Add to Home Screen</strong>.`,
+    ];
+    action = html`<button class="wide-btn primary" onClick=${copyAppLink}><${Icon} name="copy" size=${20} /> Copy the link</button>`;
+    skip = 'Continue here anyway';
+  } else {
+    // Android: Chrome (or Samsung Internet)
+    title = install === 'installed' ? 'It’s installed' : 'Install it on your phone first';
+    intro = install === 'installed'
+      ? 'Open Reno from your home screen (or your list of apps) and set up your project there.'
+      : 'It gets its own icon, opens like an app and works offline.';
+    if (install === 'offer') {
+      action = html`<button class="wide-btn primary" onClick=${promptInstall}><${Icon} name="addSquare" size=${20} /> Install Reno Tracker</button>`;
+    } else if (install !== 'installed') {
+      steps = kind === 'samsung' ? [
+        html`Tap the menu <strong>≡</strong> at the bottom right.`,
+        html`Tap <strong>Add page to</strong>, then <strong>Home screen</strong>.`,
+        html`Open <strong>Reno</strong> from your home screen and set up your project there.`,
+      ] : [
+        html`Tap the menu <${Icon} name="dotsVertical" size=${18} stroke=${3} /> at the top right of Chrome.`,
+        html`Tap <strong>Install app</strong>. On some phones it’s <strong>Add to Home screen</strong>, then <strong>Install</strong>.`,
+        html`Open <strong>Reno</strong> from your home screen and set up your project there.`,
+      ];
+    }
+    skip = install === 'installed' ? 'Set it up here instead' : 'Continue in the browser';
+    note = 'It’s the same app either way: the icon just opens it quicker.';
+  }
+
   return html`<div class="setup">
     <div class="setup-step">
-      <div class="setup-house small">📲</div>
-      <h1>Add it to your Home Screen first</h1>
-      <p class="setup-sub">This turns the page into an app with its own icon. It also keeps your receipts safe: Safari can clear data from websites you haven’t visited for a while, but not from Home Screen apps.</p>
-      <ol class="install-steps">
-        <li><span class="install-num">1</span><span>Tap the <strong>Share</strong> button <${Icon} name="share" size=${18} /> in Safari. If you can’t see it, tap <strong>•••</strong> first.</span></li>
-        <li><span class="install-num">2</span><span>Scroll down and tap <strong>Add to Home Screen</strong>.</span></li>
-        <li><span class="install-num">3</span><span>Leave <strong>Open as Web App</strong> switched on, then tap <strong>Add</strong>.</span></li>
-        <li><span class="install-num">4</span><span>Open <strong>Reno</strong> from your Home Screen and set up your project there.</span></li>
-      </ol>
+      <img class="setup-icon small" src="icons/icon.svg" alt="" width="92" height="92" />
+      <h1>${title}</h1>
+      <p class="setup-sub">${intro}</p>
+      ${steps && html`<ol class="install-steps">${steps.map((text, i) => html`<${Step} n=${i + 1}>${text}<//>`)}</ol>`}
     </div>
     <div class="setup-actions">
-      <button class="wide-btn plain" onClick=${onSkip}>Continue in Safari anyway</button>
-      <p class="fine-print">Anything you enter here in Safari stays separate from the Home Screen app.</p>
+      ${action}
+      <button class="wide-btn plain" onClick=${onSkip}>${skip}</button>
+      <p class="fine-print">${note}</p>
+      <a class="link-btn small guide-link" href=${GUIDE}><${Icon} name="book" size=${18} /> Read the guide</a>
     </div>
   </div>`;
 }

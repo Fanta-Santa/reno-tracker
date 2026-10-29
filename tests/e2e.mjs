@@ -791,6 +791,71 @@ try {
     await page.locator('h1', { hasText: 'Deck Builders Co' }).waitFor();
   });
 
+  await check('the friends’ guide opens as itself (also through the offline copy), and Settings shares only a link', async () => {
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.goto(`http://localhost:${PORT}/guide.html`);
+    assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, 'the offline copy should serve the guide');
+    await page.getByRole('heading', { name: 'Add it to your phone' }).waitFor();
+    assert.equal(await page.locator('#steps-android').isHidden(), true);
+    await tap(page.getByRole('tab', { name: 'Android' }));
+    await page.locator('#steps-android').getByText('Install app').waitFor();
+    assert.equal(await page.locator('#steps-iphone').isHidden(), true);
+    await tap(page.getByRole('tab', { name: 'iPhone' }));
+    await shot('guide');
+    await tap(page.locator('.guide-hero .open-app'));
+    await page.locator('.tab-bar').waitFor();
+
+    // This browser has no Share sheet, so the message and link are copied instead
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `http://localhost:${PORT}` });
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByRole('button', { name: 'Share with a friend' }));
+    await expectToast('Link copied');
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    assert.match(copied, /^I’m using Reno Tracker.*http:\/\/localhost:\d+\/guide\.html$/s);
+    assert.doesNotMatch(copied, /Test Reno|Bunnings|Deck Builders/, 'only the link is shared, never your data');
+    await tap(page.getByRole('button', { name: 'How to install and use' }));
+    const back = page.locator('.guide-hero .open-app');
+    await back.filter({ hasText: 'Back to the app' }).waitFor();
+    await tap(back);
+    await page.locator('h1', { hasText: 'Settings' }).waitFor();
+  });
+
+  await check('first visit on a phone: install steps for Safari, other apps, other browsers and Android', async () => {
+    const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)';
+    const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko)';
+    const cases = [
+      ['safari', `${IPHONE} Version/18.5 Mobile/15E148 Safari/604.1`, 'Add it to your Home Screen first', 'Add to Home Screen'],
+      ['instagram', `${IPHONE} Mobile/15E148 Instagram 390.0.0.28.85 (iPhone15,3; iOS 18_5; en_AU)`, 'Open this in Safari first', 'Open in Safari'],
+      ['chrome-iphone', `${IPHONE} CriOS/138.0.7204.119 Mobile/15E148 Safari/604.1`, 'Open this in Safari first', 'Paste the link'],
+      ['android', `${ANDROID} Chrome/138.0.0.0 Mobile Safari/537.36`, 'Install it on your phone first', 'Install app'],
+      ['samsung', `${ANDROID} SamsungBrowser/28.0 Chrome/130.0.0.0 Mobile Safari/537.36`, 'Install it on your phone first', 'Add page to'],
+    ];
+    for (const [name, userAgent, title, text] of cases) {
+      const ctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, userAgent,
+        permissions: ['clipboard-read', 'clipboard-write'],
+      });
+      const p = await ctx.newPage();
+      p.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
+      await p.goto(`http://localhost:${PORT}/`);
+      await p.getByRole('heading', { name: title }).waitFor();
+      await p.locator('.install-steps').getByText(text, { exact: false }).first().waitFor();
+      if (name === 'chrome-iphone') {
+        await p.getByRole('button', { name: 'Copy the link' }).click();
+        await p.locator('.toast-msg', { hasText: 'Link copied' }).waitFor();
+        assert.equal(await p.evaluate(() => navigator.clipboard.readText()), `http://localhost:${PORT}/`);
+      }
+      if (SHOTS && ['instagram', 'android'].includes(name)) {
+        await p.waitForTimeout(450);
+        await p.screenshot({ path: join(SHOTS, `${String(++step).padStart(2, '0')}-install-${name}.png`) });
+      }
+      // They can always carry on without installing
+      await p.locator('.setup-actions .wide-btn.plain').click();
+      await p.getByRole('button', { name: 'Start a new project' }).waitFor();
+      await ctx.close();
+    }
+  });
+
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);
   console.log('\nAll browser checks passed.');
 } finally {
