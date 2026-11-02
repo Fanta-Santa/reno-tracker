@@ -25,6 +25,8 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - Snap or upload a receipt and the app reads the store, date, total, GST and every line item, right on the phone.
   PDFs from online orders are read exactly; photos go through Tesseract, a free text-recognition engine that runs
   in the browser (about 7 MB, downloaded the first time it's used, then kept offline).
+- Items are named from the first few words of their line, even when the receipt prints the stock code, quantity and
+  price on the line underneath (as Mitre 10 dockets do), or runs a long name over two lines.
 - Each item gets a suggested category and tool flag. Confirmation cards then ask only about what the app isn't
   sure of: the details (one tap if right), the room, any unclear items, and a final summary.
 - Quick-snapped receipts are read in the background, so the inbox is ready to check.

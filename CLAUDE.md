@@ -63,7 +63,10 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   and then after 14 days or 10 changes.
 - Receipt reading is on-device only (Tesseract in `vendor/tesseract/`, loaded on first use and cached by the
   service worker under `READER_CACHE`). Never send receipt images or text off the phone. `js/reader/parse.js` and
-  `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed.
+  `categorize.js` are pure; add a case to `tests/reader.test.mjs` for every receipt format fixed. An item is named
+  with `shortName()` (first four words of its name line; a line of only codes, quantities and "EA" is its price line,
+  never its name, and a name over 2–3 lines is named from the longest); `details` keeps the whole line for
+  `suggestCategory()`, while learned choices are keyed on the short name.
 - Expense lines may carry `description` (a receipt item). Lines marked `auto` were made up by the app (e.g. the
   unmatched remainder) and are not learned from; an `auto` line may carry `unmatched` (receipt text lines it covers).
 - `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
