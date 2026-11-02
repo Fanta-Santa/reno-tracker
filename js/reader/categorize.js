@@ -141,17 +141,18 @@ export function categoryForKind(kind, categories) {
 
 /**
  * Suggests a category for one item.
- * categories: your categories. learned: { [itemKey]: { categoryId, isTool } }.
+ * categories: your categories. learned: { [itemKey]: { categoryId, isTool } }. details: the item's whole line on the
+ * receipt, when its name is a shortened version (the words that give away what it is can come late).
  * Returns { categoryId, isTool, confidence: 'high'|'medium'|'low', alternatives: [categoryId] }.
  */
-export function suggestCategory(description, { categories, learned = {}, storeName = '', storeCategoryId = null }) {
+export function suggestCategory(description, { categories, learned = {}, storeName = '', storeCategoryId = null, details = '' }) {
   const active = categories.filter((c) => !c.archived);
   const isActive = (id) => active.some((c) => c.id === id);
   const toolFor = (id) => !!active.find((c) => c.id === id)?.isTool;
 
   const key = itemKey(description);
   const memory = key && learned[key];
-  const ranked = scoreKinds(description, storeName)
+  const ranked = scoreKinds(details || description, storeName)
     .map((s) => ({ ...s, category: categoryForKind(s.kind, active) }))
     .filter((s) => s.category);
   const alternatives = [...new Set(ranked.map((s) => s.category.id))];
@@ -191,7 +192,7 @@ export function breakdownFromItems(items, totalCents, ctx) {
   const groups = new Map();
   let unsure = 0;
   for (const it of items) {
-    const s = suggestCategory(it.description, ctx);
+    const s = suggestCategory(it.description, { ...ctx, details: it.details });
     if (s.categoryId && s.confidence !== 'low') groups.set(s.categoryId, (groups.get(s.categoryId) || 0) + it.amountCents);
     else unsure += it.amountCents;
   }

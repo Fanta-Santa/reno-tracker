@@ -51,7 +51,7 @@ function buildReview({ expense, pendingFiles = [], scan }) {
   const storeCategoryId = storeByName(store)?.defaultCategoryId || null;
   const categories = state.categories;
   const items = (r?.items || []).map((it) => {
-    const s = suggestCategory(it.description, { categories, learned: state.learned, storeName: store, storeCategoryId });
+    const s = suggestCategory(it.description, { categories, learned: state.learned, storeName: store, storeCategoryId, details: it.details });
     return {
       id: uid(),
       description: it.description,

@@ -68,6 +68,9 @@ function kindOf(label) {
   return null;
 }
 
+// Words that say how something was sold, not what it is: "1234567  1 EA @ 89.00", "QTY 2", "SKU 1234567".
+const SOLD_AS = /^(ea|each|pcs?|units?|qty|sku|code|item|plu|ean|apn|barcode)$/i;
+
 /** Splits a line into its words and its money, and works out what kind of line it is. */
 function analyse(raw, confidence) {
   const text = normaliseLine(raw);
@@ -75,19 +78,25 @@ function analyse(raw, confidence) {
   let label = text;
   for (const a of [...amounts].reverse()) label = label.slice(0, a.index) + ' ' + label.slice(a.index + a.length);
   let qty = null;
-  const q = label.match(/(?:^|\s)(\d{1,3}(?:\.\d+)?)\s*(?:@|x|×|ea\b|each\b)\s*$/i) || label.match(/^\s*(?:qty:?\s*)?(\d{1,3})\s*(?:@|x|×)\s*/i);
+  // "1 EA @", "2 EACH", "3 PCS @", "4 @", "2x" at the end of a line. (A name ending in "5PC" is a 5-piece set.)
+  const q = label.match(/(?:^|\s)(\d{1,3}(?:\.\d+)?)(?:\s*(?:ea|each)\b\.?\s*[@x×]?|\s+(?:pcs?|units?)\b\.?\s*[@x×]?|\s*(?:pcs?|units?)\b\.?\s*[@x×]|\s*[@x×])\s*$/i)
+    || label.match(/^\s*(?:qty:?\s*)?(\d{1,3})\s*(?:@|x|×)\s*/i);
   if (q) {
     qty = Number(q[1]);
     label = label.replace(q[0], ' ');
   }
-  const code = label.match(/\b\d{8,14}\b/);
-  if (code) label = label.replace(code[0], ' ');
-  label = label.replace(/[\s:*#=~_.$-]+$/, '').replace(/^[\s:*#=~_.-]+/, '').replace(/\s{2,}/g, ' ').trim();
-  const letters = (label.match(/[a-z]/gi) || []).length;
+  label = label.replace(/\b\d{5,14}\b/g, ' '); // barcodes and stock codes (prices have cents, so aren't caught)
+  label = label.replace(/[\s:*#=~_.$-]+$/, '').replace(/^[\s:*#=~_.-]+/, '');
+  // The item's name is the first column; anything after a wide gap is quantities, codes or tax flags.
+  const name = label.split(/\s{3,}/).find((part) => (part.match(/[a-z]/gi) || []).length >= 2) || label;
+  label = label.replace(/\s{2,}/g, ' ').trim();
+  // A line whose only words are "EA", "QTY" and the like isn't an item's name: it's the price line under one.
+  const named = label.split(' ').some((w) => (w.match(/[a-z]/gi) || []).length >= 3 && !SOLD_AS.test(w.replace(/[^a-z]/gi, '')));
+  const letters = named ? (label.match(/[a-z]/gi) || []).length : 0;
   let amount = amounts.length ? amounts[amounts.length - 1].cents : null;
   let unitAmount = amounts.length > 1 ? amounts[0].cents : null;
   // "4 @ $11.20  $44.B0": the line total is unreadable, but quantity × unit price gives it.
-  const each = text.match(/(?:^|\s)(\d{1,3})\s*@\s*\$?\s?(\d+)\.(\d{2})(?!\d)/);
+  const each = text.match(/(?:^|\s)(\d{1,3})\s*(?:(?:ea|each|pcs?|units?)\b\.?\s*)?@\s*\$?\s?(\d+)\.(\d{2})(?!\d)/i);
   if (each && amounts.length === 1) {
     unitAmount = Number(each[2]) * 100 + Number(each[3]);
     amount = Number(each[1]) * unitAmount;
@@ -96,17 +105,27 @@ function analyse(raw, confidence) {
     raw,
     text,
     label: letters >= 2 ? label : '',
+    name: letters >= 2 ? name.replace(/\s{2,}/g, ' ').trim() : '',
     amount,
     unitAmount,
     qty,
     confidence: confidence ?? 90,
     kind: letters >= 2 ? kindOf(label) : null,
+    // Words, then a "$" with no readable price: an item in its own right, not part of the next one's name.
+    pricey: !amounts.length && /\$\s*[\d.,]*\s*$/.test(text),
   };
+}
+
+/** Could this line be (part of) an item's name? Words, no price, and not a heading, a date or a total. */
+function nameLine(l) {
+  return !!l && l.amount == null && !!l.label && !l.kind && !l.pricey && !HEADER_RE.test(l.text) && !datesIn(l.text).length;
 }
 
 /**
  * Receipts often print an item's price on its own line (or OCR splits it off), and
  * sometimes a label like "EFTPOS" lands just after its amount. This joins them back up.
+ * A name can run over two or three lines above its price ("DULUX WASH&WEAR LOW SHEEN" / "VIVID WHITE 4L"): they're
+ * joined, and the item is named from the longest of them, which is where receipts print the name.
  */
 function joinOrphans(lines) {
   const out = [];
@@ -125,7 +144,22 @@ function joinOrphans(lines) {
         continue;
       }
       if (prevFree) {
-        out[out.length - 1] = { ...prev, amount: line.amount, unitAmount: line.unitAmount ?? prev.unitAmount, qty: line.qty ?? prev.qty, confidence: Math.min(line.confidence, prev.confidence) };
+        // Take in the name lines just above as well, but only a short run with something else (a price, a heading)
+        // above it: a longer run, or one reaching the top of the receipt, can't be told apart from the header.
+        let start = out.length - 1;
+        if (nameLine(prev)) while (start > 0 && out.length - start < 3 && nameLine(out[start - 1])) start--;
+        if (start < out.length - 1 && (start === 0 || nameLine(out[start - 1]))) start = out.length - 1;
+        const block = out.splice(start);
+        const longest = block.reduce((a, b) => ((b.name.match(/[a-z]/gi) || []).length > (a.name.match(/[a-z]/gi) || []).length ? b : a));
+        out.push({
+          ...prev,
+          label: block.map((l) => l.label).join(' '),
+          name: longest.name,
+          amount: line.amount,
+          unitAmount: line.unitAmount ?? prev.unitAmount,
+          qty: line.qty ?? prev.qty,
+          confidence: Math.min(line.confidence, ...block.map((l) => l.confidence)),
+        });
         continue;
       }
     }
@@ -262,19 +296,54 @@ function findDate(lines, today) {
 
 // ---------- Description tidy-up ----------
 
-/** "BUILDEX SCREW BATTEN 14G X 75 50PK" → "Buildex Screw Batten 14G x 75 50PK" */
+/**
+ * "BUILDEX SCREW BATTEN 14G X 75 50PK" → "Buildex Screw Batten 14G x 75 50PK", "HOLMAN DWV PVC BEND" → "Holman DWV PVC
+ * Bend" (words without vowels are usually abbreviations, so they stay in capitals). Text that's mostly lower case is
+ * left alone; text that's mostly capitals (the reader sometimes mixes in a "Low") is tidied.
+ */
 export function tidyDescription(label) {
   let s = label.replace(/\s{2,}/g, ' ').trim().replace(/\b0(?=[A-Za-z]{2})/g, 'O'); // "0ZITO" → "OZITO"
   const letters = s.replace(/[^a-z]/gi, '');
-  if (letters && letters === letters.toUpperCase()) {
-    s = s.split(' ').map((w) => (/\d/.test(w) ? w : w.length <= 2 && w !== 'X' ? w : w === 'X' ? 'x' : w[0] + w.slice(1).toLowerCase())).join(' ');
+  const capitals = letters.replace(/[^A-Z]/g, '').length;
+  if (letters && capitals >= letters.length * 0.75) {
+    s = s.split(' ').map((w) => {
+      if (/\d/.test(w)) return w;
+      if (w.toUpperCase() === 'X') return 'x';
+      if (!/[AEIOUY]/i.test(w)) return w.toUpperCase();
+      return w.toLowerCase().replace(/(^|[&/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+    }).join(' ');
   }
   return s.replace(/^[^a-z0-9]+/i, '').slice(0, 80);
 }
 
+const CONNECTOR = /^(-|&|\+|x|and|with|for|of|in|to)$/i;
+
+/**
+ * An item's name for lists: the first four words of the line it's printed on ("Dulux Wash&Wear Low Sheen" from
+ * "DULUX WASH&WEAR LOW SHEEN VIVID WHITE 4L"). Sizes and codes between words don't count towards the four, and a
+ * fifth word is kept if it's the last one, rather than leaving it dangling.
+ */
+export function shortName(label) {
+  const words = tidyDescription(label).split(' ');
+  const isWord = (w) => (w.match(/[a-z]/gi) || []).length >= 2;
+  let count = 0;
+  let end = words.length;
+  for (let i = 0; i < words.length; i++) {
+    if (isWord(words[i])) count++;
+    if (count === 4) {
+      end = i + 1;
+      break;
+    }
+  }
+  if (words.length - end === 1) end = words.length; // "Ozito 18V Drill Driver Skin Only" stays whole
+  const kept = words.slice(0, end);
+  while (kept.length > 1 && CONNECTOR.test(kept[kept.length - 1])) kept.pop();
+  return kept.join(' ');
+}
+
 // ---------- Lines that didn't become items ----------
 
-const HEADER_RE = /\b(abn|acn|tax invoice|invoice|receipt|welcome|phone|ph|tel|fax|www|pty|ltd|limited|group|store|branch|cashier|operator|served|reg|trans|terminal)\b|\.com\b|\b(qld|nsw|vic|sa|wa|tas|nt|act)\b\s*\d{4}\b/i;
+const HEADER_RE = /\b(abn|acn|tax invoice|invoice|receipt|welcome|phone|ph|tel|fax|www|pty|ltd|limited|group|store|branch|cashier|operator|served|reg|trans|terminal|docket|staff|till)\b|\.com\b|\b(qld|nsw|vic|sa|wa|tas|nt|act)\b\s*\d{4}\b/i;
 
 /**
  * Lines between the receipt's header and its totals that weren't turned into items:
@@ -356,11 +425,12 @@ export function parseReceipt(rawLines, { knownStores = [], today = null } = {}) 
     if (['noise', 'change', 'payment', 'gst', 'total', 'subtotal'].includes(l.kind)) return;
     if (datesIn(l.text).length) return;
     if (totalCents && l.amount === totalCents && items.length) return;
-    const description = tidyDescription(l.label);
+    const description = shortName(l.name || l.label);
     if (!description) return;
     used.add(i);
     items.push({
       description,
+      details: tidyDescription(l.label), // the whole line(s), for guessing the category
       amountCents: l.amount,
       qty: l.qty,
       ocrConfidence: l.confidence,

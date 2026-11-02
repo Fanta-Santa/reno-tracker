@@ -3,7 +3,7 @@
 // including its typical slips. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt, findAmounts, normaliseLine, tidyDescription } from '../js/reader/parse.js';
+import { parseReceipt, findAmounts, normaliseLine, tidyDescription, shortName } from '../js/reader/parse.js';
 import { suggestCategory, itemKey, scoreKinds, breakdownFromItems } from '../js/reader/categorize.js';
 import { DEFAULT_CATEGORIES } from '../js/defaults.js';
 
@@ -91,6 +91,109 @@ test('Mitre 10 receipt: price on its own line, discount, payment after its label
   assert.equal(r.items[0].description, 'Dulux Wash&Wear 41 White');
   assert.equal(r.items[4].isDiscount, true);
   assert.equal(r.itemsMatchTotal, true);
+});
+
+// What the reader made of tests/fixtures/mitre-docket.jpg: each item's name on one line, with its stock code,
+// quantity and price on the line under it.
+const MITRE_DOCKET = [
+  [95, 'MITRE 10'],
+  [95, 'Strathpine Mitre 10 Mega'],
+  [91, 'ABN 12 345 678 991'],
+  [95, 'TAX INVOICE'],
+  [57, 'Date 03/10/2026 09:15  T4113'],
+  [91, 'Docket 0048213 Staff KT'],
+  [88, 'DULUX WASHSWEAR Low SHEEN VIVID WHITE 4L'],
+  [87, '1234567 1 EA @ 89.00         89.00'],
+  [93, 'UNI-PRO ROLLER KIT 230MM 5PC'],
+  [93, '2045531   1 EA @ 24.50         24.50'],
+  [93, 'HOLMAN DWV PVC BEND 90MM 88DEG'],
+  [86, '3301872 2 EA @ 8.95          17.90'],
+  [93, 'SELLEYS NO MORE GAPS WHITE 4506'],
+  [88, '1187704 1 EA @ 6.98'],
+  [96, 'SUBTOTAL                       138.38'],
+  [95, 'TOTAL                          138.38'],
+  [95, 'GST INCLUDED                    12.58'],
+  [93, 'EFTPOS                         138.38'],
+  [95, 'Thank you for shopping at Mitre 10'],
+].map(([confidence, text]) => ({ text, confidence }));
+
+test('Mitre 10 docket: the name comes from the line above the code, quantity and price', () => {
+  const r = parseReceipt(MITRE_DOCKET, { today: TODAY });
+  assert.equal(r.store.value, 'Mitre 10');
+  assert.equal(r.total.cents, 13838);
+  assert.equal(r.gst.cents, 1258);
+  assert.deepEqual(r.items.map((i) => [i.description, i.amountCents, i.qty]), [
+    ['Dulux Washswear Low Sheen', 8900, 1],
+    ['Uni-Pro Roller Kit 230MM 5PC', 2450, 1], // one word over: kept, rather than left dangling
+    ['Holman DWV PVC Bend', 1790, 2], // 2 EA @ 8.95
+    ['Selleys No More Gaps', 698, 1], // the line total was too faint to read: 1 × 6.98
+  ]);
+  assert.equal(r.items[0].details, 'Dulux Washswear Low Sheen Vivid White 4L'); // the whole line, for the category
+  assert.equal(r.itemsMatchTotal, true);
+  assert.deepEqual(r.unmatched, []); // the docket number is part of the header
+});
+
+test('an item name over two lines: named from the longer one, and both are kept together', () => {
+  const r = parseReceipt(lines(`
+MITRE 10
+Tax Invoice
+DULUX WASH&WEAR LOW SHEEN VIVID
+WHITE 4L
+ 1234567   1 EA @ 89.00   89.00
+SELLEYS NO MORE GAPS
+450G WHITE
+ 1187704   2 EA @ 6.98    13.96
+TOTAL   102.96`), { today: TODAY });
+  assert.deepEqual(r.items.map((i) => [i.description, i.details, i.amountCents, i.qty]), [
+    ['Dulux Wash&Wear Low Sheen Vivid', 'Dulux Wash&Wear Low Sheen Vivid White 4L', 8900, 1],
+    ['Selleys No More Gaps', 'Selleys No More Gaps 450G White', 1396, 2],
+  ]);
+  assert.deepEqual(r.unmatched, []);
+});
+
+test('a code and quantity line never becomes the item, whatever the layout', () => {
+  // Everything on one line, with the stock code first and a tax flag after the price
+  const one = parseReceipt(lines(`MITRE 10
+2045531  UNI-PRO ROLLER KIT 230MM 5PC     1  EA     24.50   24.50   G
+TOTAL 24.50`), { today: TODAY });
+  assert.deepEqual(one.items.map((i) => [i.description, i.amountCents]), [['Uni-Pro Roller Kit 230MM 5PC', 2450]]);
+  // "QTY 2" and "SKU" on the price line
+  const sku = parseReceipt(lines(`Hardware Store
+Tax Invoice
+CONCRETE MIX 20KG BAG
+SKU 330187  QTY 2 x 9.50   19.00
+TOTAL 19.00`), { today: TODAY });
+  assert.deepEqual(sku.items.map((i) => [i.description, i.amountCents]), [['Concrete Mix 20KG Bag', 1900]]);
+  // Near the top, a name can't be told apart from the shop's name above it, so only the line above the price is used
+  const top = parseReceipt(lines(`MITRE 10
+DULUX WASH&WEAR 4L
+1234567 1 EA @ 89.00   89.00
+TOTAL 89.00`), { today: TODAY });
+  assert.deepEqual(top.items.map((i) => i.description), ['Dulux Wash&Wear 4L']);
+});
+
+test('item names: tidy capitals, and the first four words of a long name', () => {
+  assert.equal(tidyDescription('HOLMAN DWV PVC BEND 90MM'), 'Holman DWV PVC Bend 90MM');
+  assert.equal(tidyDescription('DULUX WASHSWEAR Low SHEEN'), 'Dulux Washswear Low Sheen');
+  assert.equal(tidyDescription('UNI-PRO W&W NO MORE GAPS'), 'Uni-Pro W&W No More Gaps');
+  assert.equal(tidyDescription('Floor sander drum 1 day'), 'Floor sander drum 1 day'); // not in capitals: left alone
+  assert.equal(shortName('DULUX WASH&WEAR LOW SHEEN VIVID WHITE 4L'), 'Dulux Wash&Wear Low Sheen');
+  assert.equal(shortName('OZITO 18V DRILL DRIVER SKIN ONLY'), 'Ozito 18V Drill Driver Skin Only'); // one more word: kept
+  assert.equal(shortName('BUILDEX SCREW BATTEN 14G X 75 50PK'), 'Buildex Screw Batten 14G x 75 50PK'); // sizes don't count
+  assert.equal(shortName('Labour - install vanity and tapware 8 hrs'), 'Labour - install vanity');
+  assert.equal(shortName('Paint brush set with tray and roller'), 'Paint brush set'); // no dangling "with"
+});
+
+test('a shortened name still gets its category from the whole line', () => {
+  const r = parseReceipt(lines(`Hardware Store
+Tax Invoice
+OZITO PXC 18V CORDLESS BRUSHLESS HAMMER DRILL KIT   249.00
+TOTAL 249.00`), { today: TODAY });
+  const [item] = r.items;
+  assert.equal(item.description, 'Ozito PXC 18V Cordless Brushless');
+  const s = suggestCategory(item.description, { categories: CATS, details: item.details });
+  assert.equal(CATS.find((c) => c.id === s.categoryId).name, 'Tools'); // "drill" is only in the full line
+  assert.equal(s.isTool, true);
 });
 
 test('Kennards hire invoice: "Total (inc GST)" and a written-out date', () => {
