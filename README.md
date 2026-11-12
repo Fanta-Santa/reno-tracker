@@ -18,6 +18,7 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 - Duplicate warning (same store, date and total)
 - Expenses list with search, filters, sorting, swipe to delete, and an Undo bar instead of "Are you sure?"
 - Receipt viewer with pinch-zoom, including multi-page PDFs
+- While you fill in an expense, its receipt stays pinned at the top of the form, so you can read it as you go
 - Settings for rooms, categories and stores, plus a full backup and restore (.zip with every receipt)
 
 ## Receipt reading
@@ -40,19 +41,18 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 
 ## Dashboard (Stage 2)
 
-- An illustrated early-1900s Australian cottage on a floating island, built from your rooms: always single-storey,
-  with rooms either side of a central hallway once there are more than three. Cream weatherboards, a coral
-  corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah (your deck/outdoor area), plus a garage
-  shed, garden, Hills Hoist and picket fence, softly lit at dusk by lamplit windows and porch and gate lamps.
-  Whole-house stages (like Painting) float above as tags.
-- It starts closed up with the roof on: just your project's name, the house, and a status at the top right that
-  shows the budget at a glance (✓ on track, ! at risk, or ‼ over budget). Tap the house (or the status) and the roof
-  lifts off to show every room; drag the roof back down to close it up.
-- Every room shows its budget status with a badge: ✓ on track, ! nearly at budget (90%+), ‼ over budget.
-  Tap a room to lift it and see what's been spent there, its top categories and recent receipts.
-- Warnings for anything over (or nearly over) budget, the headline numbers (spent, budget, committed, remaining),
-  payments coming up (quotes and bills with a due date), and charts: budget by room (each bar is that room's own
-  budget), tools vs everything else, spending by category, and a smooth spend-over-time line.
+- First, what you've spent so far: the total against your budget, with the budget status (✓ on track, ! nearly at
+  budget, ‼ over budget) and Budget · Committed (accepted quotes) · Remaining.
+- Then your rooms: what each room or stage has spent against its own budget (a full bar means it's all used), with
+  any over or nearly over budget first.
+- Tap the Rooms card (or a room) and it opens up into an illustrated early-1900s Australian cottage on a floating
+  island, built from your rooms: always single-storey, with rooms either side of a central hallway once there are more
+  than three. Cream weatherboards, a coral corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah
+  (your deck/outdoor area), plus a garage shed, garden, Hills Hoist and picket fence, softly lit at dusk. The roof
+  lifts off to show every room with its status; tap a room to see what's been spent there, its top categories and
+  recent receipts. Drag the roof back down (or tap ✕) to put it away.
+- Payments coming up (quotes and bills with a due date), to-dos, and charts: tools vs everything else, spending by
+  category, and a smooth spend-over-time line.
 
 ## Quotes (Stage 3)
 

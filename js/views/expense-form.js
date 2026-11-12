@@ -3,11 +3,11 @@
 import { html, useEffect, useMemo, useState } from '../lib.js';
 import {
   state, useStore, activeRooms, activeCategories, categoryById, storeByName,
-  blankExpense, saveExpense, deleteExpense, findDuplicates, gstRate, uid,
+  blankExpense, saveExpense, deleteExpense, findDuplicates, gstRate, uid, getFile, setPrefs,
 } from '../store.js';
 import { centsToInput, expenseGst, formatDate, formatMoney, parseMoney, splitEvenly, splitByWeights } from '../format.js';
 import { roomType } from '../defaults.js';
-import { prepareFile } from '../images.js';
+import { prepareFile, openPdf, renderPage } from '../images.js';
 import {
   openSheet, SheetHeader, Switch, Segmented, Chips, Thumb, toast, toastUndo, withBusy, pickFiles,
   confirmAction,
@@ -69,6 +69,69 @@ function draftFrom(expense, pendingFiles = []) {
 export function openExpenseForm({ expense, pendingFiles = [], draft, title, onSaved, shares } = {}) {
   const initial = draft || { ...draftFrom(expense || blankExpense(), pendingFiles), title, onSaved, shares };
   openSheet(({ close }) => html`<${ExpenseForm} initial=${initial} close=${close} />`, { full: true, dismissible: false });
+}
+
+// ---------- The receipt, pinned at the top ----------
+
+/** A picture of a receipt (saved or not yet saved) to show in the form: photos as they are, a PDF's first page. */
+function useReceiptImage(f) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    let made = null;
+    setUrl(null);
+    (async () => {
+      const file = f?.pending || (f && await getFile(f.id));
+      if (!file?.blob) return;
+      let blob = file.blob;
+      if (file.type === 'application/pdf') {
+        const pdf = await openPdf(blob);
+        try {
+          const canvas = await renderPage(await pdf.getPage(1), 1000);
+          blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+          canvas.width = canvas.height = 0;
+        } finally {
+          pdf.destroy();
+        }
+      }
+      made = URL.createObjectURL(blob);
+      if (alive) setUrl(made);
+      else URL.revokeObjectURL(made);
+    })().catch((err) => console.warn('Receipt preview failed', err));
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [f?.id]);
+  return url;
+}
+
+/**
+ * The receipt stays in view at the top of the form while you fill in the details underneath: scroll it to read
+ * further down, tap it for the full-screen viewer (pinch to zoom), or hide it (remembered). It gets smaller while
+ * you're typing, to leave room above the keyboard.
+ */
+function ReceiptPeek({ files, index, onIndex, onView, small }) {
+  const f = files[index];
+  const url = useReceiptImage(f);
+  if (state.prefs.receiptPeek === false) {
+    return html`<button class="peek-bar" onClick=${() => setPrefs({ receiptPeek: true })}>
+      <${Icon} name="receipt" size=${18} /> Show the receipt while you fill this in</button>`;
+  }
+  return html`<div class="receipt-peek ${small ? 'small' : ''}">
+    <div class="peek-frame">
+      ${url ? html`<img src=${url} alt="Receipt" onClick=${onView} />` : html`<span class="peek-loading"><span class="spinner" /></span>`}
+    </div>
+    <div class="peek-tools">
+      ${files.length > 1 && html`<span class="peek-count">
+        <button onClick=${() => onIndex(index - 1)} disabled=${index === 0} aria-label="Previous receipt"><${Icon} name="chevronLeft" size=${18} stroke=${2.4} /></button>
+        <span>${index + 1} of ${files.length}</span>
+        <button onClick=${() => onIndex(index + 1)} disabled=${index === files.length - 1} aria-label="Next receipt"><${Icon} name="chevronRight" size=${18} stroke=${2.4} /></button>
+      </span>`}
+      <button class="peek-btn" onClick=${onView} aria-label="View the receipt full screen"><${Icon} name="expand" size=${18} stroke=${2.2} /></button>
+      <button class="peek-btn" onClick=${() => setPrefs({ receiptPeek: false })}>Hide</button>
+    </div>
+  </div>`;
 }
 
 // ---------- The form ----------
@@ -181,6 +244,14 @@ function ExpenseForm({ initial, close }) {
   }));
 
   const viewFile = (i) => openViewer(d.files.map((f) => f.pending || f.id), i);
+  // Which receipt is pinned at the top, and whether a field is being typed in (the receipt shrinks to make room).
+  const [peekIndex, setPeekIndex] = useState(0);
+  const peekAt = Math.min(peekIndex, Math.max(0, d.files.length - 1));
+  const [typing, setTyping] = useState(false);
+  const peekShown = d.files.length > 0 && state.prefs.receiptPeek !== false;
+  const tapTile = (i) => (peekShown && i !== peekAt ? setPeekIndex(i) : viewFile(i));
+  const onFocusIn = (e) => setTyping(/^(INPUT|TEXTAREA)$/.test(e.target.tagName) && !/date|checkbox/.test(e.target.type));
+  const onFocusOut = () => setTyping(false);
 
   // ----- Saving -----
 
@@ -279,10 +350,12 @@ function ExpenseForm({ initial, close }) {
   const hasPending = d.files.some((f) => f.pending) || isInbox;
 
   return html`<${SheetHeader} title=${title} onCancel=${cancel} onDone=${save} doneLabel="Save" />
-  <div class="sheet-body form">
+  <div class="sheet-body form" onfocusin=${onFocusIn} onfocusout=${onFocusOut}>
+    ${d.files.length > 0 && html`<${ReceiptPeek} files=${d.files} index=${peekAt} onIndex=${setPeekIndex}
+      onView=${() => viewFile(peekAt)} small=${typing} />`}
     <div class="receipt-strip">
-      ${d.files.map((f, i) => html`<div class="receipt-tile" key=${f.id}>
-        <button class="receipt-tile-img" onClick=${() => viewFile(i)} aria-label="View receipt">
+      ${d.files.map((f, i) => html`<div class="receipt-tile ${peekShown && i === peekAt ? 'on' : ''}" key=${f.id}>
+        <button class="receipt-tile-img" onClick=${() => tapTile(i)} aria-label=${peekShown && i !== peekAt ? 'Show this receipt' : 'View receipt'}>
           ${f.pending
             ? (f.pending.thumb ? html`<img src=${pendingUrls.get(f.id)} alt="" />` : html`<span class="pdf-tile"><${Icon} name="doc" />PDF</span>`)
             : html`<${Thumb} fileId=${f.id} size=${76} radius=${14} />`}
