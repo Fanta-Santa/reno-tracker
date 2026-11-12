@@ -7,7 +7,7 @@ import { SheetHost, ToastHost, BusyHost, toast } from './ui/kit.js';
 import { ViewerHost } from './ui/viewer.js';
 import { CameraHost } from './ui/camera.js';
 import { Icon } from './ui/icons.js';
-import { DashboardView } from './views/dashboard.js';
+import { DashboardView, HouseViewHost } from './views/dashboard.js';
 import { QuotesView, QuoteDetailView } from './views/quotes.js';
 import { ExpensesView, ExpenseDetailView, InboxView } from './views/expenses.js';
 import { SettingsView, ListSettingsView } from './views/settings.js';
@@ -72,7 +72,7 @@ function App() {
     }
   }, [path]);
 
-  const overlays = html`<${SheetHost} /><${ViewerHost} /><${CameraHost} /><${ToastHost} /><${BusyHost} />`;
+  const overlays = html`<${HouseViewHost} /><${SheetHost} /><${ViewerHost} /><${CameraHost} /><${ToastHost} /><${BusyHost} />`;
   if (!s.loaded) return html`<div class="splash"><span class="spinner" /></div>`;
   if (!s.project) return html`<div class="app"><${SetupView} />${overlays}</div>`;
 

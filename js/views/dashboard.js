@@ -1,5 +1,5 @@
-// Dashboard: the house (closed up with a budget status at the top; tap it to look inside and tap a room to see its
-// spending), budget warnings, the headline numbers, to-dos, and charts by room, by category, tools vs the rest,
+// Dashboard: what you've spent so far (with the budget status), a room-by-room card that opens up into the floating
+// house (tap a room to see its spending), payments coming up, to-dos, and charts for tools vs the rest, by category
 // and over time.
 
 import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
@@ -18,29 +18,81 @@ import { openAddMenu } from './capture.js';
 import { runBackup } from './settings.js';
 import { dueText } from './quotes.js';
 
-let remembered = null; // the selected room, kept while the app is open
-let rememberedOpen = false; // the house starts with its roof on
-
 function Meter({ value, max, status }) {
   const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return html`<span class="meter ${status || ''}"><span style=${`width:${width}%`} /></span>`;
 }
 
-/** Budget at a glance (top right while the roof is on): over budget, at risk, on track, or no budgets yet. */
-function StatusPill({ stats, onTap }) {
+/** The budget at a glance: over budget, at risk, on track, or no budgets yet (null). */
+function budgetStatus(stats) {
   const over = stats.overBudget.length;
   const near = stats.nearBudget.length;
-  const status = over || stats.status === 'over' ? 'over' : near || stats.status === 'near' ? 'near' : stats.budget ? 'ok' : 'none';
+  const status = over || stats.status === 'over' ? 'over' : near || stats.status === 'near' ? 'near' : stats.budget ? 'ok' : null;
+  if (!status) return null;
+  const rooms = (n) => `${n} ${n === 1 ? 'room' : 'rooms'}`;
   const text = {
-    over: over ? `${over} over budget` : 'Over budget',
-    near: near ? `${near} at risk` : 'At risk',
+    over: over ? `${rooms(over)} over budget` : 'Over budget',
+    near: near ? `${rooms(near)} nearly at budget` : 'Nearly at budget',
     ok: 'On track',
-    none: 'No budgets yet',
   }[status];
-  const more = status === 'over' && near ? `, ${near} more at risk` : '';
-  return html`<button class="status-pill s-${status}" onClick=${onTap} aria-label=${`Budget: ${text}${more}. Look inside the house.`}>
-    <${StatusBadge} status=${status} inline /><span class="sp-text">${text}</span>
-  </button>`;
+  return { status, text: status === 'over' && near ? `${text}, ${near} nearly` : text };
+}
+
+/** The first thing on the dashboard: what's been spent, against the budget, with the status and the key figures. */
+function SpentCard({ stats, onStatus }) {
+  const status = budgetStatus(stats);
+  const totalOver = stats.budget > 0 && stats.spent + stats.committed > stats.budget;
+  const used = stats.budget ? Math.round((stats.spent / stats.budget) * 100) : null;
+  return html`<section class="glass-card kpis spent-card" aria-label="Spent so far">
+    <div class="kpi-hero">
+      <span class="kpi-label">Spent so far</span>
+      <span class="kpi-big">${formatMoney(stats.spent, { whole: true })}</span>
+      <span class="kpi-sub">${stats.budget
+        ? `of ${formatMoney(stats.budget, { whole: true })} budget · ${used}% used`
+        : 'Add budgets to your rooms to see how you’re tracking'}</span>
+      ${stats.budget > 0 && html`<${Meter} value=${stats.spent} max=${stats.budget} status=${stats.status} />`}
+      ${status && html`<button class="status-chip s-${status.status}" onClick=${onStatus}
+        aria-label=${`Budget: ${status.text}. Look inside the house.`}>
+        <${StatusBadge} status=${status.status} inline />${status.text}
+        <${Icon} name="chevronRight" size=${14} stroke=${2.4} />
+      </button>`}
+    </div>
+    <div class="kpi-tiles">
+      <div class="kpi-tile"><span class="kpi-label">Budget</span><strong>${stats.budget ? formatMoney(stats.budget, { whole: true }) : '—'}</strong></div>
+      <button class="kpi-tile tappable" onClick=${() => navigate('/quotes')}><span class="kpi-label">Committed</span><strong>${formatMoney(stats.committed, { whole: true })}</strong><small>accepted quotes ›</small></button>
+      <div class="kpi-tile"><span class="kpi-label">${totalOver ? 'Over by' : 'Remaining'}</span>
+        <strong class=${totalOver ? 'neg' : ''}>${stats.budget ? formatMoney(Math.abs(stats.remaining), { whole: true }) : '—'}</strong>
+        ${totalOver && stats.committed > 0 && html`<small>counting accepted quotes</small>`}</div>
+    </div>
+    <p class="kpi-foot">Includes ${formatMoney(stats.gst, { whole: true })} GST</p>
+  </section>`;
+}
+
+/**
+ * Room by room: what each room has spent against its own budget, the ones over (or nearly over) first. The little
+ * house is a hint: tap the card to open the house up, or a room to open it on that room.
+ */
+function RoomsCard({ rows, rooms, statsByRoom, onOpen, cardRef }) {
+  const order = { over: 0, near: 1 };
+  const sorted = [...rows].sort((a, b) => (order[a.status] ?? 2) - (order[b.status] ?? 2));
+  return html`<section class="glass-card chart-card rooms-card" ref=${cardRef} aria-label="Rooms">
+    <button class="rooms-head" onClick=${() => onOpen()} aria-label="Rooms. Open your house to look inside.">
+      <span class="rooms-title">
+        <span class="chart-title">Rooms</span>
+        <span class="chart-sub">Each bar is that room’s own budget. Tap to look inside your house.</span>
+      </span>
+      <span class="rooms-house" aria-hidden="true">
+        <${House} rooms=${rooms} stats=${statsByRoom} open=${false} onOpen=${() => {}} onClose=${() => {}} onSelect=${() => {}} />
+      </span>
+    </button>
+    <${BudgetBars} rows=${sorted} onSelect=${(id) => onOpen(id)} />
+    <div class="chart-legend">
+      <span><span class="lg-swatch" style=${`background:${SERIES}`} />Spent</span>
+      <span><span class="lg-swatch budget" />Budget</span>
+      ${rows.some((r) => r.status === 'over') && html`<span><span class="lg-swatch over" />Over budget</span>`}
+      ${rows.some((r) => r.committed) && html`<span><span class="lg-swatch committed" />Accepted quotes</span>`}
+    </div>
+  </section>`;
 }
 
 /** Quotes and bills with a due date, soonest first, and what's due in the next 30 days (for cash flow). */
@@ -65,14 +117,13 @@ function ComingUp({ upcoming }) {
 }
 
 /**
- * Under the house: the tapped room's spending. Closed up, there's nothing (just the house); opened up, a one-line
- * hint, plus a button only screen readers see, since the roof goes back on by dragging it down.
+ * Under the house: the tapped room's spending. With no room picked, a one-line hint, plus a button only screen
+ * readers see, since the roof goes back on by dragging it down.
  */
-function RoomCard({ row, onClose, open, onRoof }) {
+function RoomCard({ row, onClose, onRoof }) {
   const ref = useRef();
   const id = row?.room.id;
   useEffect(() => { if (id) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [id]);
-  if (!row && !open) return null;
   if (!row) {
     return html`<p class="house-caption">Tap a room to see its spending. Drag the roof down to close up.
       <button class="sr-only" onClick=${onRoof}>Put the roof back on</button></p>`;
@@ -116,30 +167,118 @@ function RoomCard({ row, onClose, open, onRoof }) {
   </div>`;
 }
 
+// ---------- The floating house, opened up from the Rooms card ----------
+
+let showHouseView = () => {};
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+
+/** A clip that shows only the card's rectangle (rounded like the card), for growing out of it and back. */
+function clipTo(el) {
+  const r = el?.getBoundingClientRect();
+  if (!r || r.bottom < 0 || r.top > innerHeight) return 'inset(40% 8% 40% 8% round 26px)'; // card off screen: from the middle
+  const top = Math.max(0, r.top);
+  const bottom = Math.max(0, innerHeight - Math.min(innerHeight, r.bottom));
+  return `inset(${top}px ${Math.max(0, innerWidth - r.right)}px ${bottom}px ${Math.max(0, r.left)}px round 26px)`;
+}
+
+/** Opens the house, growing out of `card` (the Rooms card); with a room, opens on that room. */
+function openHouseView(card, roomId = null) {
+  showHouseView({ card, roomId, key: Date.now() });
+}
+
+/** Lives outside the screen (like sheets do), so it covers the whole app, tab bar included. */
+export function HouseViewHost() {
+  const [view, setView] = useState(null);
+  showHouseView = setView;
+  useEffect(() => {
+    if (!view) return undefined;
+    const leave = () => setView(null); // e.g. "See all expenses" goes to another screen
+    addEventListener('hashchange', leave);
+    return () => removeEventListener('hashchange', leave);
+  }, [view]);
+  return view && html`<${HouseView} key=${view.key} ...${view} onDone=${() => setView(null)} />`;
+}
+
+/**
+ * Full screen: the house grows out of the Rooms card with its roof on, then the roof lifts. Tap a room to see its
+ * spending. Putting the roof back on (drag it down) or ✕ shrinks it back into the card.
+ */
+function HouseView({ card, roomId, onDone }) {
+  useStore();
+  const ref = useRef();
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [closing, setClosing] = useState(false);
+  const stats = useMemo(() => computeStats(state), [state.rooms, state.categories, state.expenses, state.quotes]);
+  const statsByRoom = useMemo(() => new Map(stats.rooms.map((r) => [r.room.id, r])), [stats]);
+  const rooms = state.rooms.filter((r) => !r.archived);
+  const stages = rooms.filter((r) => r.type === 'whole');
+
+  useEffect(() => {
+    document.documentElement.classList.add('house-open');
+    const quick = reducedMotion();
+    ref.current.animate([{ clipPath: clipTo(card) }, { clipPath: 'inset(0px 0px 0px 0px round 0px)' }],
+      { duration: quick ? 1 : 460, easing: EASE });
+    // Once it's open, lift the roof (and pick the room it was opened on)
+    const lift = setTimeout(() => {
+      setOpen(true);
+      if (roomId) setSelected(roomId);
+    }, quick ? 0 : 420);
+    const onKey = (e) => e.key === 'Escape' && close();
+    addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(lift);
+      removeEventListener('keydown', onKey);
+      document.documentElement.classList.remove('house-open');
+    };
+  }, []);
+
+  const close = () => {
+    if (closing) return;
+    setClosing(true);
+    const anim = ref.current.animate([{ clipPath: 'inset(0px 0px 0px 0px round 0px)' }, { clipPath: clipTo(card) }],
+      { duration: reducedMotion() ? 1 : 380, easing: EASE, fill: 'forwards' });
+    anim.finished.then(onDone, onDone);
+  };
+  /** The roof went back on: let it settle, then shrink back into the card. */
+  const roofOn = () => {
+    setOpen(false);
+    setSelected(null);
+    setTimeout(close, reducedMotion() ? 0 : 520);
+  };
+
+  return html`<div class="house-view ${closing ? 'closing' : ''}" ref=${ref} role="dialog" aria-modal="true" aria-label="Your house">
+    <div class="hv-scroll">
+      <header class="hv-bar">
+        <h2>${state.project.name}</h2>
+        <button class="nav-icon-btn" onClick=${close} aria-label="Close the house"><${Icon} name="x" size=${20} stroke=${2.2} /></button>
+      </header>
+      <section class="house-scene" aria-label="House">
+        ${stages.length > 0 && html`<div class="stage-chips" aria-label="Whole-house stages">
+          ${stages.map((r) => html`<button class="stage-chip ${selected === r.id ? 'on' : ''}" onClick=${() => setSelected(selected === r.id ? null : r.id)}
+            aria-pressed=${selected === r.id} aria-label=${`${r.name}: ${STATUS_TEXT[statsByRoom.get(r.id)?.status || 'none']}`}>
+            <span aria-hidden="true">${roomType(r.type).emoji}</span>${r.name}<${StatusBadge} status=${statsByRoom.get(r.id)?.status || 'none'} />
+          </button>`)}
+        </div>`}
+        <${House} rooms=${rooms} stats=${statsByRoom} open=${open} onOpen=${(id) => { setOpen(true); if (id) setSelected(id); }}
+          onClose=${roofOn} selectedId=${selected} onSelect=${setSelected} />
+        ${open && html`<${RoomCard} row=${selected ? statsByRoom.get(selected) : null} onClose=${() => setSelected(null)} onRoof=${roofOn} />`}
+      </section>
+    </div>
+  </div>`;
+}
+
+// ---------- The dashboard ----------
+
 export function DashboardView() {
   useStore();
-  const [selected, setSelected] = useState(remembered);
-  const [open, setOpen] = useState(rememberedOpen || !!remembered);
-  const select = (id) => {
-    remembered = id;
-    setSelected(id);
-    if (id) setRoof(true);
-  };
-  /** Lifts the roof off (true) or puts it back on (false). */
-  const setRoof = (next) => {
-    rememberedOpen = next;
-    setOpen(next);
-    if (!next) {
-      remembered = null;
-      setSelected(null);
-    }
-  };
+  const roomsRef = useRef();
   const stats = useMemo(() => computeStats(state), [state.rooms, state.categories, state.expenses, state.quotes]);
   const series = useMemo(() => spendOverTime(state.expenses, todayISO()), [state.expenses]);
   const statsByRoom = useMemo(() => new Map(stats.rooms.map((r) => [r.room.id, r])), [stats]);
   const activeRooms = state.rooms.filter((r) => !r.archived);
-  const stages = activeRooms.filter((r) => r.type === 'whole');
-  const selectedRow = selected ? statsByRoom.get(selected) : null;
+  const openHouse = (roomId) => openHouseView(roomsRef.current, roomId);
 
   const inbox = inboxExpenses().length;
   const filed = state.expenses.filter((e) => e.status !== 'inbox');
@@ -148,62 +287,18 @@ export function DashboardView() {
   const backup = backupReminder(state, lastBackup);
   const backupDue = backup.due;
 
-  const showRoom = (id) => {
-    select(id);
-    scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const roomRows = stats.rooms.map((r) => ({
     id: r.room.id, label: r.room.name, emoji: roomType(r.room.type).emoji,
     spent: r.spent, committed: r.committed, budget: r.budget, status: r.status,
   }));
   const categoryRows = stats.categories.filter((c) => c.cents > 0).map((c) => ({ id: c.category?.id, label: c.category?.name || 'Other', value: c.cents }));
-  const totalOver = stats.budget > 0 && stats.spent + stats.committed > stats.budget;
   const upcoming = useMemo(() => upcomingPayments(state.quotes, state.expenses, todayISO()), [state.quotes, state.expenses]);
 
-  return html`<${Page} title=${state.project.name} class="dashboard"
-    actions=${!open && (filed.length > 0 || stats.budget > 0) && html`<${StatusPill} stats=${stats} onTap=${() => setRoof(true)} />`}>
-    <section class="house-scene" aria-label="House">
-      ${stages.length > 0 && html`<div class="stage-chips" aria-label="Whole-house stages">
-        ${stages.map((r) => html`<button class="stage-chip ${selected === r.id ? 'on' : ''}" onClick=${() => select(selected === r.id ? null : r.id)}
-          aria-pressed=${selected === r.id} aria-label=${`${r.name}: ${STATUS_TEXT[statsByRoom.get(r.id)?.status || 'none']}`}>
-          <span aria-hidden="true">${roomType(r.type).emoji}</span>${r.name}<${StatusBadge} status=${statsByRoom.get(r.id)?.status || 'none'} />
-        </button>`)}
-      </div>`}
-      <${House} rooms=${activeRooms} stats=${statsByRoom} open=${open} onOpen=${(id) => (id ? select(id) : setRoof(true))}
-        onClose=${() => setRoof(false)} selectedId=${selected} onSelect=${select} />
-      <${RoomCard} row=${selectedRow} onClose=${() => select(null)} open=${open} onRoof=${() => setRoof(!open)} />
-    </section>
+  return html`<${Page} title=${state.project.name} class="dashboard">
+    <${SpentCard} stats=${stats} onStatus=${() => openHouse()} />
 
-    ${(stats.overBudget.length > 0 || stats.nearBudget.length > 0 || totalOver) && html`<div class="alerts" role="status">
-      ${totalOver && html`<div class="alert over"><${StatusBadge} status="over" /><span>The whole reno is <strong>${formatMoney(stats.spent + stats.committed - stats.budget, { whole: true })} over budget</strong>${stats.committed ? ', counting accepted quotes' : ''}.</span></div>`}
-      ${stats.overBudget.map((r) => html`<button class="alert over" key=${r.room.id} onClick=${() => showRoom(r.room.id)}>
-        <${StatusBadge} status="over" /><span><strong>${r.room.name}</strong> is ${formatMoney(r.spent - r.budget, { whole: true })} over budget</span>
-        <${Icon} name="chevronRight" size=${16} stroke=${2.2} />
-      </button>`)}
-      ${stats.nearBudget.map((r) => html`<button class="alert near" key=${r.room.id} onClick=${() => showRoom(r.room.id)}>
-        <${StatusBadge} status="near" /><span><strong>${r.room.name}</strong> ${r.spent + r.committed > r.budget
-          ? `will go over budget with accepted quotes`
-          : `has used ${Math.round((r.spent / r.budget) * 100)}% of its budget`}</span>
-        <${Icon} name="chevronRight" size=${16} stroke=${2.2} />
-      </button>`)}
-    </div>`}
-
-    <div class="kpis glass-card">
-      <div class="kpi-hero">
-        <span class="kpi-label">Spent so far</span>
-        <span class="kpi-big">${formatMoney(stats.spent, { whole: true })}</span>
-        <span class="kpi-sub">${stats.budget ? `of ${formatMoney(stats.budget, { whole: true })} budget · ` : ''}includes ${formatMoney(stats.gst, { whole: true })} GST</span>
-        ${stats.budget > 0 && html`<${Meter} value=${stats.spent} max=${stats.budget} status=${stats.status} />`}
-      </div>
-      <div class="kpi-tiles">
-        <div class="kpi-tile"><span class="kpi-label">Budget</span><strong>${stats.budget ? formatMoney(stats.budget, { whole: true }) : '—'}</strong></div>
-        <button class="kpi-tile tappable" onClick=${() => navigate('/quotes')}><span class="kpi-label">Committed</span><strong>${formatMoney(stats.committed, { whole: true })}</strong><small>accepted quotes ›</small></button>
-        <div class="kpi-tile"><span class="kpi-label">${totalOver ? 'Over by' : 'Remaining'}</span>
-          <strong class=${totalOver ? 'neg' : ''}>${stats.budget ? formatMoney(Math.abs(stats.remaining), { whole: true }) : '—'}</strong>
-          ${!stats.budget && html`<small>set room budgets</small>`}</div>
-      </div>
-    </div>
+    ${roomRows.length > 0 && html`<${RoomsCard} rows=${roomRows} rooms=${activeRooms} statsByRoom=${statsByRoom}
+      onOpen=${openHouse} cardRef=${roomsRef} />`}
 
     ${upcoming.length > 0 && html`<${ComingUp} upcoming=${upcoming} />`}
 
@@ -228,22 +323,10 @@ export function DashboardView() {
     <//>`}
 
     ${filed.length === 0 ? html`<${EmptyState} emoji="🧾" title="Let’s log your first receipt"
-        text="After your next hardware run, tap ＋ and snap the receipt. Your house fills in as you go.">
+        text="After your next hardware run, tap ＋ and snap the receipt. Your rooms fill in as you go.">
         <button class="wide-btn primary" onClick=${openAddMenu}>Add an expense</button>
       <//>`
       : html`
-      <section class="chart-card glass-card">
-        <h2 class="chart-title">Budget by room or stage</h2>
-        <p class="chart-sub">Each bar is that room’s own budget, so a full bar means it’s all used. Tap one to see its expenses.</p>
-        <${BudgetBars} rows=${roomRows} onSelect=${(id) => showExpensesWith({ rooms: [id] })} />
-        <div class="chart-legend">
-          <span><span class="lg-swatch" style=${`background:${SERIES}`} />Spent</span>
-          <span><span class="lg-swatch budget" />Budget</span>
-          ${roomRows.some((r) => r.status === 'over') && html`<span><span class="lg-swatch over" />Over budget</span>`}
-          ${roomRows.some((r) => r.committed) && html`<span><span class="lg-swatch committed" />Accepted quotes</span>`}
-        </div>
-      </section>
-
       <section class="chart-card glass-card">
         <h2 class="chart-title">Tools vs everything else</h2>
         <p class="chart-sub">Tools are reusable across the whole reno.</p>

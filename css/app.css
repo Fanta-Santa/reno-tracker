@@ -358,7 +358,10 @@ small { font-size: 13px; }
 
 /* ---------- Sheets ---------- */
 
-.sheet-layer { position: fixed; inset: 0; z-index: 50; }
+.sheet-layer {
+  /* Covers the part of the screen you can see: with the iPhone keyboard up, sheets sit above it (see SheetHost) */
+  position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-height, 100%); z-index: 50;
+}
 .sheet-backdrop {
   /* a plum dusk, not grey; SheetHost dims the status bar to match (#bcb6c3) */
   position: absolute; inset: 0; background: rgba(42, 22, 64, 0.3); opacity: 0; transition: opacity 0.34s;
@@ -367,14 +370,14 @@ small { font-size: 13px; }
 /* Sheets are a lighter piece of the same sky, so the glass cards on them still show */
 .sheet {
   position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 640px;
-  max-height: calc(100dvh - var(--safe-top) - 12px);
+  max-height: calc(var(--vv-height, 100dvh) - var(--safe-top) - 12px);
   background: var(--sheet-bg); background-color: #fbe9ef; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex; flex-direction: column;
   transform: translateY(105%); transition: transform 0.42s var(--spring);
   box-shadow: 0 -10px 40px rgba(60, 20, 80, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   padding-bottom: var(--safe-bottom);
 }
-.sheet.full { height: calc(100dvh - var(--safe-top) - 12px); }
+.sheet.full { height: calc(var(--vv-height, 100dvh) - var(--safe-top) - 12px); }
 .sheet-layer.open .sheet { transform: none; }
 .sheet-grabber { display: flex; justify-content: center; padding: 6px 0 0; touch-action: none; }
 .sheet-grabber span { width: 36px; height: 5px; border-radius: 3px; background: var(--fill-strong); }
@@ -555,6 +558,8 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 /* ---------- Forms ---------- */
 
 .form { display: flex; flex-direction: column; gap: 16px; }
+/* Nothing in a form shrinks to fit: a long form scrolls instead (the receipt strip used to get squashed and cut off) */
+.form > * { flex-shrink: 0; }
 .form-group {
   background: var(--card); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
   border: 1px solid var(--card-border); border-radius: var(--radius-lg); padding: 14px 16px;
@@ -592,6 +597,39 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .date-range { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .date-range input { min-width: 0; }
 .form-footer { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+
+/* The receipt pinned at the top of the expense form, so it stays in view while you fill in the details */
+.receipt-peek {
+  position: sticky; top: 0; z-index: 5;
+  margin: -4px calc(-1 * var(--gutter)) -6px; padding: 4px var(--gutter) 10px;
+  background: rgba(255, 240, 234, 0.86); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: 0 10px 16px -14px rgba(120, 60, 140, 0.45);
+}
+.peek-frame {
+  position: relative; height: clamp(180px, 36vh, 330px); overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 18px; background: var(--surface);
+  box-shadow: 0 8px 22px rgba(120, 60, 140, 0.18), inset 0 0 0 1px rgba(94, 74, 110, 0.08);
+  transition: height 0.3s var(--spring);
+}
+.receipt-peek.small .peek-frame { height: clamp(120px, 20vh, 180px); } /* while typing, above the keyboard */
+.peek-frame img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+.peek-loading { display: grid; place-items: center; height: 100%; }
+.peek-tools { position: absolute; top: 14px; right: calc(var(--gutter) + 10px); display: flex; gap: 6px; }
+.peek-btn, .peek-count {
+  display: inline-flex; align-items: center; justify-content: center; height: 34px; min-width: 34px; padding: 0 12px;
+  border-radius: 17px; color: #fff; font-size: 14px; font-weight: 700;
+  background: rgba(42, 22, 64, 0.58); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.peek-btn:has(> .icon:only-child) { padding: 0; }
+.peek-count { padding: 0 2px; gap: 0; font-variant-numeric: tabular-nums; }
+.peek-count button { display: grid; place-items: center; width: 30px; height: 34px; color: #fff; }
+.peek-count button:disabled { opacity: 0.35; }
+.peek-bar {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 14px; border-radius: 22px;
+  color: var(--accent); font-size: 15px; font-weight: 600; text-align: left;
+  background: rgba(255, 255, 255, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+.receipt-tile.on .receipt-tile-img { box-shadow: 0 0 0 2.5px var(--accent), 0 6px 14px rgba(120, 60, 140, 0.16); }
 
 /* Receipt strip in the form */
 .receipt-strip { display: flex; gap: 10px; overflow-x: auto; margin: 0 calc(-1 * var(--gutter)); padding: 6px var(--gutter); scrollbar-width: none; }
@@ -712,7 +750,7 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 .room-card { scroll-margin-bottom: calc(var(--tabbar-space) + 8px); position: relative; z-index: 2; margin-top: -26px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; animation: card-up 0.45s var(--spring) both; }
 @keyframes card-up { from { opacity: 0; transform: translateY(16px); } }
-.rc-status .status-badge, .bb-note .status-badge, .alert .status-badge { position: static; border: 0; }
+.rc-status .status-badge, .bb-note .status-badge, .status-chip .status-badge { position: static; border: 0; }
 .rc-head { display: flex; align-items: center; gap: 12px; }
 .rc-emoji { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: rgba(255, 255, 255, 0.7); flex: none; }
 .rc-title { flex: 1; min-width: 0; }
@@ -736,19 +774,13 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .rc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .rc-actions .pill-btn { flex: 1; }
 
-.alerts { display: flex; flex-direction: column; gap: 8px; }
-.alert {
-  display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; text-align: left; font-size: 15px;
-  border-radius: var(--radius-md); background: var(--card); box-shadow: var(--shadow-card);
-  border: 1px solid var(--card-border); -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
-}
-.alert span:not(.status-badge) { flex: 1; }
-.alert.over { background: rgba(255, 226, 232, 0.72); color: #7d1f2c; }
-.alert.near { background: rgba(255, 240, 204, 0.72); color: #6b4a00; }
-.alert .icon { color: currentColor; opacity: 0.6; }
-
 /* The headline numbers: one big total, then three figures side by side split by fine white lines */
 .kpis { padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 16px; }
+/* Spent so far is the first thing you see: a little more solid and roomier than the cards below it */
+.spent-card { padding: 22px 20px 16px; gap: 18px; background: rgba(255, 255, 255, 0.52); margin-top: 2px; }
+.spent-card .kpi-big { font-size: 68px; }
+.spent-card .meter { height: 10px; border-radius: 5px; }
+.kpi-foot { font-size: 13px; color: var(--text-2); margin-top: -6px; }
 .kpi-hero { display: flex; flex-direction: column; gap: 2px; }
 .kpi-hero .meter { margin-top: 12px; }
 .kpi-label { font-size: 13px; font-weight: 600; color: var(--text-2); }
@@ -763,6 +795,14 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .kpi-tile small { font-size: 12px; color: var(--text-2); }
 
 .chart-card { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Rooms: the room-by-room breakdown, with the little house that opens into the full one */
+.rooms-head { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; margin-bottom: -4px; }
+.rooms-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rooms-title .chart-sub { margin-top: 0; }
+.rooms-house { flex: none; width: 104px; margin: -10px -6px -6px 0; pointer-events: none; }
+.rooms-house .house-pin, .rooms-house .smoke { display: none; }
+.rooms-card .bb-row { scroll-margin: 80px; }
 .chart-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .chart-sub { font-size: 13.5px; color: var(--text-2); margin-top: -6px; }
 .chart-note { font-size: 13px; color: var(--text-2); }
@@ -1098,6 +1138,28 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 /* ---------- Dashboard house ---------- */
 
+/* The house opened up full screen from the Rooms card (it grows out of the card: see HouseView) */
+html.house-open, html.house-open body { overflow: hidden; }
+.house-view {
+  position: fixed; inset: 0; z-index: 40; overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--statusbar) 0, rgba(251, 251, 251, 0) 130px),
+    radial-gradient(56% 34% at 50% 44%, rgba(255, 236, 205, 0.7), rgba(255, 236, 205, 0) 100%),
+    var(--sky);
+  background-color: var(--bg);
+}
+.house-view.closing { pointer-events: none; }
+.hv-scroll {
+  height: 100%; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: calc(var(--safe-top) + 8px) var(--gutter) calc(var(--safe-bottom) + 28px);
+  animation: hv-in 0.5s var(--spring) both;
+}
+@keyframes hv-in { from { opacity: 0; transform: scale(0.97); } }
+.hv-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; }
+.hv-bar h2 { font-family: var(--font-display); font-size: 28px; font-weight: 700; letter-spacing: -0.03em; min-width: 0; overflow-wrap: anywhere; }
+.house-view .house-scene { margin-top: 4px; }
+.house-view .room-card { scroll-margin-bottom: 24px; }
+
 /* The house sits straight on the sky (the page background), with a soft warm lamplight glow around it. */
 .house-scene {
   position: relative; margin: 0 calc(-1 * var(--gutter)); padding: 6px var(--gutter) 14px;
@@ -1159,22 +1221,17 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 @keyframes pin-in { from { opacity: 0; transform: translate(-50%, -60%) scale(0.6); } }
 .house.open .house-pin { animation-delay: 0.35s; } /* after the roof lifts */
 
-/* Budget at a glance, top right of the dashboard while the roof is on */
-.status-pill {
-  display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 6px 14px 6px 9px; border-radius: 19px;
-  background: rgba(255, 255, 255, 0.5); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 6px 18px rgba(150, 60, 120, 0.15);
-  font-size: 15px; font-weight: 700; white-space: nowrap; animation: pill-in 0.4s var(--spring) both;
+/* The budget at a glance, inside the Spent card (tap it to look inside the house) */
+.status-chip {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 34px; margin-top: 12px;
+  padding: 5px 10px 5px 7px; border-radius: 17px; font-size: 14px; font-weight: 700; white-space: nowrap;
+  background: rgba(255, 255, 255, 0.7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9);
 }
-.status-pill .status-badge { position: static; border: 0; min-width: 22px; height: 22px; border-radius: 11px; font-size: 12px; }
-.status-pill.s-ok { color: #0b5e0b; }
-.status-pill.s-near { color: #6b4a00; }
-.status-pill.s-over { color: #a8102f; }
-.status-pill.s-none { color: var(--text-2); font-weight: 600; padding-left: 13px; }
-.nav-bar.is-compact .status-pill .sp-text { display: none; }
-.nav-bar.is-compact .status-pill { padding: 6px 8px; }
-.nav-bar.is-compact .status-pill.s-none { display: none; } /* no badge to show, so nothing left */
-@keyframes pill-in { from { opacity: 0; transform: scale(0.85); } }
+.status-chip .status-badge { min-width: 22px; height: 22px; border-radius: 11px; font-size: 12px; border: 0; }
+.status-chip .icon { opacity: 0.55; }
+.status-chip.s-ok { color: #0b5e0b; }
+.status-chip.s-near { color: #6b4a00; background: rgba(255, 240, 204, 0.85); }
+.status-chip.s-over { color: #a8102f; background: rgba(255, 226, 232, 0.85); }
 .status-badge {
   position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px;
   display: grid; place-items: center; font-size: 11px; font-weight: 800; line-height: 1; color: #fff;

@@ -232,7 +232,7 @@ test('every colour and size token the stylesheet uses is defined', () => {
   const defined = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
   const used = new Set([...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
   // A few are set from JavaScript, per element.
-  for (const name of ['--count', '--index']) defined.add(name);
+  for (const name of ['--count', '--index', '--vv-top', '--vv-height']) defined.add(name);
   for (const name of used) assert.ok(defined.has(name), `css/app.css uses var(${name}) but never defines it`);
 });
 

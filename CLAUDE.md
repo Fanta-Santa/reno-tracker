@@ -33,12 +33,15 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   (`js/views/house.js`, hand-drawn isometric SVG; `buildHouse()` lays it out). The house is always single-storey:
   an early-1900s Australian cottage (cream weatherboards, coral corrugated iron, bullnose verandah, in soft pastels to
   suit the sky), softly lit at dusk (lamplit windows, porch and gate lamps; gradients in `Defs`). Up to 3 rooms in a
-  row; more go either side of a central hallway with low-cut interior walls. It starts closed (roof on, side wall up)
-  with a budget status pill top right of the dashboard; tapping it lifts the roof up and back, fades the side wall
-  (`layer: 'shell'`) and shows the room pins. The roof goes back on by dragging it down (no button; a
-  screen-reader-only one). Status overlays (class `st`) only show while it's open. Closed, the top of the dashboard
-  is just the title, the status pill and the house, sitting straight on the sky (no background of its own, so no
-  edges).
+  row; more go either side of a central hallway with low-cut interior walls. Opening it lifts the roof up and back,
+  fades the side wall (`layer: 'shell'`) and shows the room pins; the roof goes back on by dragging it down (no
+  button; a screen-reader-only one). Status overlays (class `st`) only show while it's open.
+- The dashboard leads with the Spent card (`SpentCard`: total, budget meter, a status chip, Budget · Committed ·
+  Remaining). There are no warning boxes: the status chip and the Rooms card carry the warnings. The house sits
+  behind the Rooms card (`RoomsCard`: per-room `BudgetBars`, over and nearly-over first, a small closed house as a
+  hint). Tapping the card, a room or the status chip opens `HouseView` full screen (rendered by `HouseViewHost`, outside
+  the screen like sheets, so it covers the tab bar): it grows out of the card (a clip-path animation), then the roof
+  lifts. Dragging the roof back down, ✕, Escape or going to another screen shrinks it back.
 - Dashboard numbers come from `js/stats.js` (pure). Budget status: 'none' | 'ok' | 'near' (90%+, or accepted quotes
   would tip it over) | 'over'. Status colours (#0ca30c / #fab219 / #d03b3b) always come with a ✓ / ! / ‼ badge.
 - Charts (`js/ui/charts.js`): spending is #2a78d6, tools #eb6834 (pair validated for colour blindness); one axis only.
@@ -69,6 +72,10 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
   `suggestCategory()`, while learned choices are keyed on the short name.
 - Expense lines may carry `description` (a receipt item). Lines marked `auto` were made up by the app (e.g. the
   unmatched remainder) and are not learned from; an `auto` line may carry `unmatched` (receipt text lines it covers).
+- The expense form pins the receipt at the top (`ReceiptPeek`, sticky; scroll inside it to read, tap for the viewer,
+  hidden or shown via `prefs.receiptPeek`; smaller while typing). Form children never shrink (`.form > *`), so a long
+  form scrolls rather than squashing the receipt strip. Sheets are fitted to the visible part of the screen
+  (`--vv-top` / `--vv-height`, set by `SheetHost` from `visualViewport`), so they sit above the iPhone keyboard.
 - `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
   `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap.
 - The friends' guide is `guide.html` (+ `css/guide.css`, on top of `css/app.css`): a plain page with no app code, linked

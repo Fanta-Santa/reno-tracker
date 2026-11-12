@@ -223,6 +223,29 @@ function Sheet({ render, full, dismissible, close, variant, closing }) {
 
 export function SheetHost() {
   const list = sheets.use();
+  // With the iPhone keyboard up, only part of the screen is visible. Sheets are fitted to that part, so the top of a
+  // form (and the receipt pinned there) stays in view above the keyboard rather than sliding off the top.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return undefined;
+    const root = document.documentElement.style;
+    const fit = () => {
+      if (vv.scale > 1.01) { // zoomed in with two fingers: leave sheets where they are
+        root.removeProperty('--vv-top');
+        root.removeProperty('--vv-height');
+        return;
+      }
+      root.setProperty('--vv-top', `${Math.max(0, vv.offsetTop)}px`);
+      root.setProperty('--vv-height', `${vv.height}px`);
+    };
+    fit();
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => {
+      vv.removeEventListener('resize', fit);
+      vv.removeEventListener('scroll', fit);
+    };
+  }, []);
   useEffect(() => {
     const open = list.some((s) => !s.closing);
     document.documentElement.classList.toggle('sheet-open', open);
