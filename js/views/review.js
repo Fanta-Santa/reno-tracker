@@ -8,7 +8,7 @@
 import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
 import {
   state, useStore, activeRooms, activeCategories, categoryById, roomById, storeByName, uid, blankExpense,
-  saveExpense, findDuplicates, inboxExpenses, gstRate,
+  saveExpense, findDuplicates, inboxExpenses, gstRate, lastRoomFor, usualRoomId, matchingStores,
 } from '../store.js';
 import { centsToInput, formatDate, formatMoney, gstFromTotal, parseMoney, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
@@ -19,6 +19,7 @@ import {
 } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { openViewer } from '../ui/viewer.js';
+import { ReceiptPeek } from '../ui/receipt-peek.js';
 import { openExpenseForm } from './expense-form.js';
 
 // ---------- Building the review from what the reader found ----------
@@ -88,7 +89,9 @@ function buildReview({ expense, pendingFiles = [], scan }) {
     totalConfidence: r?.total.confidence || 'low',
     gstCents: r?.gst.cents ?? null,
     gstFound: r?.gst.cents != null,
-    roomId: defaultRoomId(),
+    // The store's usual room, if it has one; once settled (its last two receipts went there), the room card is skipped
+    roomId: lastRoomFor(store) || defaultRoomId(),
+    roomUsual: !!usualRoomId(store),
     items,
     wholeCategoryId,
     wholeIsTool: !!categoryById(wholeCategoryId)?.isTool,
@@ -108,7 +111,7 @@ const receiptFiles = (rv) => (rv.pendingFiles.length ? rv.pendingFiles : rv.expe
 
 function cardsFor(rv) {
   const cards = [{ type: 'details' }];
-  if (activeRooms().length > 1) cards.push({ type: 'room' });
+  if (activeRooms().length > 1 && !rv.roomUsual) cards.push({ type: 'room' });
   if (rv.items.length) {
     const unsure = rv.items.filter((it) => !it.isDiscount && (it.confidence !== 'high' || it.ocrConfidence < 70));
     unsure.forEach((it, i) => cards.push({ type: 'item', itemId: it.id, n: i + 1, of: unsure.length }));
@@ -229,7 +232,7 @@ function useSwipe({ onRight, onLeft }) {
     const el = ref.current;
     if (!el) return undefined;
     const down = (e) => {
-      if (e.target.closest('input, select, textarea, button, .chips, .sum-list')) return;
+      if (e.target.closest('input, select, textarea, button, .chips, .sum-list, .receipt-peek')) return; // the receipt scrolls
       const x0 = e.clientX;
       const y0 = e.clientY;
       let mode = null;
@@ -267,7 +270,9 @@ function useSwipe({ onRight, onLeft }) {
 function Review({ initial, close, next, position }) {
   useStore();
   const [rv, setRv] = useState(initial);
-  const [cards] = useState(() => cardsFor(initial));
+  const [deck] = useState(() => cardsFor(initial)); // which items need a card is decided once
+  const cards = useMemo(() => (rv.roomUsual ? deck.filter((c) => c.type !== 'room')
+    : deck.some((c) => c.type === 'room') || activeRooms().length < 2 ? deck : [deck[0], { type: 'room' }, ...deck.slice(1)]), [deck, rv.roomUsual]);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const set = (patch) => setRv((cur) => ({ ...cur, ...(typeof patch === 'function' ? patch(cur) : patch) }));
@@ -336,7 +341,7 @@ function Review({ initial, close, next, position }) {
   } else if (card.type === 'item') {
     const it = rv.items.find((x) => x.id === card.itemId);
     onConfirm = () => (it?.categoryId ? forward() : toast('Pick a category for this item.', { icon: 'alert' }));
-    body = it ? html`<${ItemCard} it=${it} card=${card} setItem=${setItem} onPicked=${() => setTimeout(forward, 220)} onConfirm=${onConfirm} />` : null;
+    body = it ? html`<${ItemCard} rv=${rv} it=${it} card=${card} setItem=${setItem} onPicked=${() => setTimeout(forward, 220)} onConfirm=${onConfirm} />` : null;
   } else if (card.type === 'category') {
     onConfirm = () => (rv.wholeCategoryId ? forward() : toast('Pick a category.', { icon: 'alert' }));
     body = html`<${CategoryCard} rv=${rv} set=${set} onPicked=${() => setTimeout(forward, 220)} onConfirm=${onConfirm} />`;
@@ -366,38 +371,34 @@ function Review({ initial, close, next, position }) {
     </div>`;
 }
 
-function ReceiptPeek({ rv }) {
-  const pending = rv.pendingFiles[0];
-  const preview = useFilePreview(pending);
-  const files = rv.pendingFiles.length ? rv.pendingFiles : rv.expense.fileIds;
+/** The receipt, pinned at the top of a card so you can compare as you check. */
+function CardReceipt({ rv }) {
+  const files = receiptFiles(rv);
   if (!files.length) return null;
-  return html`<button class="fc-receipt" onClick=${() => openViewer(files, 0)} aria-label="View receipt">
-    ${pending ? (preview && pending.thumb ? html`<img src=${preview} alt="" />` : html`<span class="pdf-tile"><${Icon} name="doc" />PDF</span>`)
-      : html`<${Thumb} fileId=${files[0]} size=${64} radius=${12} />`}
-  </button>`;
+  return html`<${ReceiptPeek} files=${files} compact onView=${(i) => openViewer(files, i)} />`;
 }
 
 function DetailsCard({ rv, set, totalCents, onConfirm, canSortLater, onSortLater }) {
   const [editingStore, setEditingStore] = useState(rv.storeConfidence !== 'high' || !rv.store);
   const gst = rv.gstFound ? rv.gstCents : gstFromTotal(totalCents ?? 0, gstRate());
+  // Changing the store also changes which room it usually goes to
+  const setStore = (store) => set({ store, storeConfidence: 'high', roomId: lastRoomFor(store) || rv.roomId, roomUsual: !!usualRoomId(store) });
+  const chips = editingStore ? matchingStores(rv.store) : [];
   return html`<div class="fc-body">
-    <div class="fc-top">
-      <div>
-        <span class="fc-kicker">Receipt details</span>
-        <h2>Is this right?</h2>
-      </div>
-      <${ReceiptPeek} rv=${rv} />
+    <${CardReceipt} rv=${rv} />
+    <div>
+      <span class="fc-kicker">Receipt details</span>
+      <h2>Is this right?</h2>
     </div>
     <div class="fc-fields">
       <label class="fc-field">
         <span class="fc-label">Store ${confidenceTag(rv.storeConfidence)}</span>
         <input type="text" value=${rv.store} placeholder="Store or supplier" onFocus=${() => setEditingStore(true)}
-          onInput=${(e) => set({ store: e.currentTarget.value, storeConfidence: 'high' })} />
+          onInput=${(e) => setStore(e.currentTarget.value)} />
       </label>
-      ${editingStore && state.stores.length > 0 && html`<div class="fc-chips">
-        <${Chips} items=${state.stores.map((s) => ({ value: s.name, label: s.name }))}
-          value=${state.stores.find((s) => s.name.toLowerCase() === rv.store.trim().toLowerCase())?.name}
-          onChange=${(store) => set({ store, storeConfidence: 'high' })} />
+      ${chips.length > 0 && html`<div class="fc-chips">
+        <${Chips} items=${chips.map((s) => ({ value: s.name, label: s.name }))} value=${storeByName(rv.store.trim())?.name}
+          onChange=${setStore} />
       </div>`}
       <label class="fc-field">
         <span class="fc-label">Date ${confidenceTag(rv.dateConfidence)}</span>
@@ -417,16 +418,23 @@ function DetailsCard({ rv, set, totalCents, onConfirm, canSortLater, onSortLater
   </div>`;
 }
 
+/** The room tiles, with the store's usual room marked. */
+function RoomTiles({ rv, onPick }) {
+  const usual = lastRoomFor(rv.store);
+  return html`<div class="room-grid">
+    ${activeRooms().map((r) => html`<button class="room-tile ${rv.roomId === r.id ? 'on' : ''}" onClick=${() => onPick(r.id)}>
+      <span class="room-emoji">${roomType(r.type).emoji}</span><span>${r.name}</span>
+      ${r.id === usual && rv.store && html`<small>last time for ${rv.store}</small>`}
+    </button>`)}
+  </div>`;
+}
+
 function RoomCard({ rv, onPick, onConfirm }) {
   return html`<div class="fc-body">
     <span class="fc-kicker">Room or stage</span>
     <h2>Where’s this for?</h2>
     <p class="fc-sub">For everything on this receipt. You can move single items on the last card.</p>
-    <div class="room-grid">
-      ${activeRooms().map((r) => html`<button class="room-tile ${rv.roomId === r.id ? 'on' : ''}" onClick=${() => onPick(r.id)}>
-        <span class="room-emoji">${roomType(r.type).emoji}</span><span>${r.name}</span>
-      </button>`)}
-    </div>
+    <${RoomTiles} rv=${rv} onPick=${onPick} />
     <div class="fc-actions">
       <button class="wide-btn primary" onClick=${onConfirm}><${Icon} name="check" size=${20} stroke=${2.4} /> ${roomById(rv.roomId)?.name || 'Next'}</button>
     </div>
@@ -440,10 +448,11 @@ function categoryChips(preferred) {
     .map((c) => ({ value: c.id, label: c.isTool ? `🔧 ${c.name}` : c.name }));
 }
 
-function ItemCard({ it, card, setItem, onPicked, onConfirm }) {
+function ItemCard({ rv, it, card, setItem, onPicked, onConfirm }) {
   const amount = parseMoney(it.amountText);
   const chips = useMemo(() => categoryChips([it.categoryId, ...(it.alternatives || [])].filter(Boolean)), [it.id]);
   return html`<div class="fc-body">
+    <${CardReceipt} rv=${rv} />
     <span class="fc-kicker">Not sure about ${card.of === 1 ? 'one item' : `item ${card.n} of ${card.of}`}</span>
     <h2>${it.categoryId ? 'Is this right?' : 'What is this?'}</h2>
     <div class="fc-item">
@@ -562,6 +571,8 @@ function OtherItems({ rv, set, remainder, hasItems, onAdd }) {
 
 function SummaryCard({ rv, set, setItem, totalCents, onSave, onEditAll }) {
   const room = roomById(rv.roomId);
+  const [changingRoom, setChangingRoom] = useState(false);
+  const manyRooms = activeRooms().length > 1;
   const sum = itemsTotal(rv);
   const remainder = (totalCents ?? 0) - sum;
   const hasItems = rv.items.length > 0;
@@ -608,10 +619,15 @@ function SummaryCard({ rv, set, setItem, totalCents, onSave, onEditAll }) {
   });
 
   return html`<div class="fc-body summary">
+    <${CardReceipt} rv=${rv} />
     <span class="fc-kicker">Last step</span>
     <h2>All set?</h2>
-    <p class="fc-sub"><strong>${rv.store || 'No store'}</strong> · ${formatDate(rv.date)} · <strong>${formatMoney(totalCents ?? 0)}</strong>
-      <br />${room ? `${roomType(room.type).emoji} ${room.name}` : ''}</p>
+    <p class="fc-sub"><strong>${rv.store || 'No store'}</strong> · ${formatDate(rv.date)} · <strong>${formatMoney(totalCents ?? 0)}</strong></p>
+    ${room && html`<div class="sum-room">
+      <span>${roomType(room.type).emoji} <strong>${room.name}</strong>${rv.roomUsual && !rv.roomPicked && !changingRoom ? html`<small> · as usual for ${rv.store}</small>` : ''}</span>
+      ${manyRooms && html`<button class="link-btn small" onClick=${() => setChangingRoom(!changingRoom)}>${changingRoom ? 'Done' : 'Change'}</button>`}
+    </div>`}
+    ${changingRoom && html`<${RoomTiles} rv=${rv} onPick=${(roomId) => { set({ roomId, roomPicked: true }); setChangingRoom(false); }} />`}
     <div class="sum-list">
       ${hasItems ? rv.items.map((it) => html`<${SummaryRow} key=${it.id} it=${it} rv=${rv} setItem=${setItem} onRemove=${() => removeItem(it.id)} />`)
         : html`<div class="sum-row"><div class="sum-main static">

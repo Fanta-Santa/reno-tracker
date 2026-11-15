@@ -27,7 +27,7 @@ export function compactMoney(cents) {
  * Each bar is its own room's budget (the full length is 100% of it), whatever the other rooms' budgets are.
  * Spent is blue, accepted quotes light blue; a room that's over budget is a full red bar.
  */
-export function BudgetBars({ rows, onSelect }) {
+export function BudgetBars({ rows, onSelect, onBudget }) {
   return html`<div class="bb">
     ${rows.map((r) => {
       const isOver = r.budget > 0 && r.spent > r.budget;
@@ -36,7 +36,10 @@ export function BudgetBars({ rows, onSelect }) {
       if (!r.budget) note = 'No budget set';
       else if (r.status === 'over') note = `Over by ${formatMoney(r.spent - r.budget, { whole: true })}`;
       else note = `${Math.round((r.spent / r.budget) * 100)}% used · ${formatMoney(r.budget - r.spent - r.committed, { whole: true })} left`;
-      return html`<button class="bb-row" key=${r.id} onClick=${() => onSelect?.(r.id)}
+      // A room without a budget gets a "Set one" button beside the note (outside the row's own button)
+      return html`<div class="bb-item" key=${r.id}>
+      ${!r.budget && onBudget && html`<button class="bb-set" onClick=${() => onBudget(r.id)} aria-label=${`Set a budget for ${r.label}`}>Set one</button>`}
+      <button class="bb-row" onClick=${() => onSelect?.(r.id)}
         aria-label=${`${r.label}: spent ${formatMoney(r.spent)}${r.budget ? ` of ${formatMoney(r.budget)}` : ''}. ${STATUS_TEXT[r.status]}.`}>
         <span class="bb-head">
           <span class="bb-name"><span aria-hidden="true">${r.emoji}</span> ${r.label}</span>
@@ -47,7 +50,7 @@ export function BudgetBars({ rows, onSelect }) {
           ${committed > 0 && html`<span class="bb-committed" style=${`left:calc(${pct(r.spent, r.budget)} + 2px);width:max(0px, calc(${pct(committed, r.budget)} - 2px))`} />`}
         </span>`}
         <span class="bb-note"><${StatusBadge} status=${r.status} />${note}${r.committed > 0 ? ` · ${formatMoney(r.committed, { whole: true })} in accepted quotes` : ''}</span>
-      </button>`;
+      </button></div>`;
     })}
   </div>`;
 }

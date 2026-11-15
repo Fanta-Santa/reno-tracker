@@ -1,7 +1,7 @@
 // Checks the dashboard numbers. Run: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime, upcomingPayments, backupReminder } from '../js/stats.js';
+import { budgetStatus, computeStats, quoteOutstanding, quoteParts, quoteProgress, quoteTotals, spendOverTime, spentThisMonth, upcomingPayments, backupReminder } from '../js/stats.js';
 import { smoothPath, smoothSeries } from '../js/ui/charts.js';
 
 const rooms = [
@@ -160,4 +160,17 @@ test('backup reminder: only when something changed, after 14 days or 10 changes'
   assert.equal(backupReminder({ expenses: made(2, now - day) }, last, now).due, true); // 20 days and 2 changes
   assert.equal(backupReminder({ expenses: made(9, now) }, now - 3 * day, now).due, false);
   assert.equal(backupReminder({ expenses: made(6, now), quotes: made(4, now) }, now - 3 * day, now).due, true); // 10 changes
+});
+
+test('this month: filed expenses dated in the same month as today', () => {
+  const expenses = [
+    { status: 'filed', date: '2026-11-02', totalCents: 1000 },
+    { status: 'filed', date: '2026-11-30', totalCents: 250 },
+    { status: 'filed', date: '2026-10-31', totalCents: 9999 }, // last month
+    { status: 'inbox', date: '2026-11-10', totalCents: 500 }, // not sorted yet
+    { status: 'filed', date: '2025-11-15', totalCents: 700 }, // November, but last year
+  ];
+  assert.equal(spentThisMonth(expenses, '2026-11-15'), 1250);
+  assert.equal(spentThisMonth(expenses, '2026-12-01'), 0);
+  assert.equal(spentThisMonth([], '2026-11-15'), 0);
 });

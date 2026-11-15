@@ -21,14 +21,18 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
 const PORT = 8765;
 const server = await serve(PORT);
-// A fake camera that "sees" a photo of a Bunnings receipt (a one-frame Y4M video, made with Python's Pillow).
+// A fake camera that "sees" a photo of a Bunnings receipt (a one-frame Y4M video, made with Python's Pillow):
+// a 1080×1920 view of a bench with the receipt in the middle, where the app's guide frame is.
 const CAMERA_FEED = join(FIXTURES, '..', '.tmp-camera.y4m');
 writeFileSync(CAMERA_FEED, execFileSync('python3', ['-I', '-c', `
 import sys
 from PIL import Image
-im = Image.open(sys.argv[1]).convert('YCbCr')
-w, h = im.width // 2 * 2, im.height // 2 * 2
-im = im.crop((0, 0, w, h))
+receipt = Image.open(sys.argv[1]).convert('RGB')
+receipt = receipt.resize((680, round(receipt.height * 680 / receipt.width)))
+im = Image.new('RGB', (1080, 1920), (92, 84, 74))
+im.paste(receipt, (200, 434))
+im = im.convert('YCbCr')
+w, h = im.width, im.height
 y, cb, cr = im.split()
 small = (w // 2, h // 2)
 out = sys.stdout.buffer
@@ -75,9 +79,24 @@ async function choose(kind, files) {
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), kind()]);
   await chooser.setFiles(files);
 }
+/**
+ * Taps ＋ and returns the button for `label`. ＋ opens the camera, where the other ways in ("Type it in", "PDF / photo",
+ * "Quote") sit under the shutter; with the app's camera switched off it opens a menu with the same choices instead.
+ */
 async function addMenu(label) {
   await tap(page.getByRole('button', { name: 'Add expense' }));
-  return page.locator('.action-btn', { hasText: label });
+  const menu = page.locator('.action-btn', { hasText: label });
+  const camera = page.locator('.camera.live, .camera.error');
+  await Promise.race([menu.waitFor(), camera.waitFor()]);
+  if (await menu.count()) return menu;
+  const extra = { 'Enter manually': 'Type it in', 'Upload PDF or screenshot': 'PDF / photo', 'Add a quote': 'Quote' }[label];
+  assert.ok(extra, `${label} is only in the menu, not the camera`);
+  return page.locator('.camera-extra', { hasText: extra });
+}
+/** Taps ＋: the camera opens straight away. */
+async function openCamera() {
+  await tap(page.getByRole('button', { name: 'Add expense' }));
+  await page.locator('.camera.live, .camera.error').waitFor();
 }
 const expectToast = (text) => page.locator('.toast-msg', { hasText: text }).waitFor();
 
@@ -112,6 +131,12 @@ try {
     await page.getByText('Budget $500').waitFor();
     // Turn off Deck.
     await tap(page.getByRole('switch', { name: 'Include Deck' }));
+    // One-tap extras: Laundry joins the list (switched on), then is switched off again so the count stays at 4.
+    await tap(page.locator('.more-rooms .chip', { hasText: 'Laundry' }));
+    await page.locator('.setup-room', { hasText: 'Laundry' }).waitFor();
+    assert.equal(await page.locator('.more-rooms .chip', { hasText: 'Laundry' }).count(), 0);
+    await page.getByRole('button', { name: /Create project with 5 rooms/ }).waitFor();
+    await tap(page.getByRole('switch', { name: 'Include Laundry' }));
     await shot('rooms');
     await tap(page.getByRole('button', { name: /Create project with 4 rooms/ }));
     await page.locator('h1', { hasText: 'Test Reno' }).waitFor();
@@ -326,9 +351,16 @@ try {
     assert.equal(await page.locator('.page-body > *').first().evaluate((el) => el.classList.contains('spent-card')), true);
     assert.equal(await page.locator('.alert, .status-pill').count(), 0);
     await page.locator('.spent-card .status-chip').waitFor();
+    await page.locator('.spent-card .kpi-foot', { hasText: '$456 this month' }).waitFor();
     await page.locator('.rooms-card .bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     assert.equal(await page.locator('.house-pin').count(), 0);
     await shot('dashboard-top');
+    // A room without a budget can get one straight from its row.
+    await tap(page.getByRole('button', { name: 'Set a budget for Bathroom' }));
+    await sheet().getByPlaceholder('No budget').fill('300');
+    await tap(sheet().getByRole('button', { name: 'Save', exact: true }));
+    await page.locator('.rooms-card .bb-row', { hasText: 'Bathroom' }).getByText('of $300').waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Set a budget for Bathroom' }).count(), 0);
     // Tapping the Rooms card opens it up into the house, and the roof lifts. Tap a room to see its spending.
     await tap(page.locator('.rooms-head'));
     await page.locator('.house-view .house.open').waitFor();
@@ -484,19 +516,25 @@ try {
     await page.locator('h1', { hasText: 'Reader Reno' }).waitFor();
   });
 
-  await check('snap a receipt with the app camera (light on), read on the phone, confirmed with cards', async () => {
-    await tap(await addMenu('Snap a receipt'));
+  await check('＋ opens the camera; the photo is cropped to the frame; checked with cards, receipt in view', async () => {
+    await openCamera();
     await page.locator('.camera.live').waitFor();
     // The test browser's fake camera has no light, so it says "No light"; an iPhone says "Light on".
     await page.locator('.camera-light', { hasText: /Light on|No light/ }).waitFor();
+    await page.locator('.camera-extra', { hasText: 'Type it in' }).waitFor();
     await shot('camera');
     await tap(page.getByRole('button', { name: 'Take photo' }));
-    await page.locator('.camera-review img').waitFor();
+    const still = page.locator('.camera-review img');
+    await still.waitFor();
+    // Only what's inside the guide frame is kept (the feed is 1080×1920)
+    const size = await still.evaluate((img) => [img.naturalWidth, img.naturalHeight]);
+    assert.ok(size[0] > 600 && size[0] < 1000 && size[1] < 1600, `cropped to the frame: ${size.join('×')}`);
     await shot('camera-review');
-    await tap(page.getByRole('button', { name: 'Use photo' }));
+    await tap(page.getByRole('button', { name: 'Check now' }));
     await page.locator('.scan-line').waitFor();
     await shot('scanning');
     await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    await sheet().locator('.flash-card .receipt-peek img').waitFor(); // the receipt, pinned at the top of the card
     await shot('card-details');
     assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Bunnings');
     assert.equal(await sheet().locator('.fc-field.total input').inputValue(), '144.21');
@@ -558,9 +596,9 @@ try {
     await choose(async () => tap(await addMenu('Snap a receipt')), join(FIXTURES, 'kennards-photo.jpg'));
     await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
     assert.equal(await sheet().locator('.dots span').count(), 3); // details, room, summary: no item cards now
-    // Swipe right to confirm a card.
+    // Swipe right to confirm a card (below the pinned receipt, which scrolls instead).
     const card = await sheet().locator('.flash-card').boundingBox();
-    const y = card.y + 60;
+    const y = card.y + card.height * 0.55;
     await page.mouse.move(card.x + 60, y);
     await page.mouse.down();
     for (let i = 1; i <= 10; i++) await page.mouse.move(card.x + 60 + i * 16, y);
@@ -636,11 +674,13 @@ try {
     await tap(page.locator('.tab', { hasText: 'Settings' }));
     await tap(page.getByRole('switch', { name: 'Use the app’s camera' }));
     assert.equal(await page.getByRole('switch', { name: 'Use the app’s camera' }).isChecked(), true);
-    await tap(await addMenu('Quick snap'));
+    await openCamera();
     await page.locator('.camera.live').waitFor();
     await tap(page.getByRole('button', { name: 'Take photo' }));
+    await tap(page.getByRole('button', { name: 'Sort later' }));
     await page.locator('.camera-count', { hasText: '1' }).waitFor();
     await tap(page.getByRole('button', { name: 'Take photo' }));
+    await tap(page.getByRole('button', { name: 'Sort later' }));
     await page.locator('.camera-count', { hasText: '2' }).waitFor();
     await shot('camera-multi');
     await tap(page.locator('.camera-text', { hasText: 'Done' }));
@@ -651,12 +691,34 @@ try {
     await page.evaluate(() => {
       navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
     });
-    await tap(await addMenu('Snap a receipt'));
+    await openCamera();
     await page.getByText('Camera access is switched off for this app').waitFor();
     await shot('camera-blocked');
     await choose(() => tap(page.getByRole('button', { name: 'Use iPhone camera' })), join(FIXTURES, 'kennards-photo.jpg'));
     await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
     assert.equal(await sheet().getByPlaceholder('Store or supplier').inputValue(), 'Kennards Hire');
+    // Kennards has gone to the Deck once; this one makes it twice (it's a duplicate, saved anyway).
+    assert.equal(await sheet().locator('.dots span').count(), 3); // details, room, summary
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await tap(sheet().locator('.room-tile', { hasText: 'Deck' }));
+    await sheet().getByText('All set?').waitFor();
+    await tap(sheet().getByRole('button', { name: 'Save expense' }));
+    await tap(page.locator('.action-btn', { hasText: 'Save anyway' }));
+    await expectToast('Expense saved');
+    // Now Kennards always goes to the Deck: the room card is skipped and the summary says so (with a way to change it).
+    await openCamera();
+    await choose(() => tap(page.getByRole('button', { name: 'Use iPhone camera' })), join(FIXTURES, 'kennards-photo.jpg'));
+    await sheet().locator('.flash-card').waitFor({ timeout: 90000 });
+    assert.equal(await sheet().locator('.dots span').count(), 2); // details, summary
+    await tap(sheet().getByRole('button', { name: 'All correct' }));
+    await sheet().getByText('All set?').waitFor();
+    await sheet().locator('.sum-room', { hasText: 'Deck' }).getByText('as usual for Kennards Hire').waitFor();
+    await shot('card-summary-usual');
+    await tap(sheet().locator('.sum-room').getByRole('button', { name: 'Change' }));
+    await sheet().locator('.room-tile', { hasText: 'Deck' }).getByText('last time for Kennards Hire').waitFor();
+    await tap(sheet().locator('.room-tile', { hasText: 'Kitchen' }));
+    await sheet().locator('.sum-room', { hasText: 'Kitchen' }).waitFor();
+    assert.equal(await sheet().locator('.sum-room').getByText('as usual').count(), 0);
     await tap(sheet().getByRole('button', { name: 'Cancel' }));
     await expectToast('Receipt not saved');
   });
@@ -881,6 +943,21 @@ try {
       await p.getByRole('button', { name: 'Start a new project' }).waitFor();
       await ctx.close();
     }
+  });
+
+  await check('start a new project: a backup first, then back to setup', async () => {
+    await tap(page.locator('.tab', { hasText: 'Settings' }));
+    await tap(page.getByText('Start a new project'));
+    await page.getByText('Start a new project?').waitFor();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      tap(page.locator('.action-btn', { hasText: 'Back up, then start fresh' })),
+    ]);
+    assert.match(download.suggestedFilename(), /^reno-backup-reader-reno-.*\.zip$/);
+    await page.getByRole('button', { name: 'Start a new project' }).waitFor(); // the welcome screen
+    await expectToast('Starting fresh');
+    await page.reload();
+    await page.getByRole('button', { name: 'Start a new project' }).waitFor();
   });
 
   assert.deepEqual(errors, [], `Browser errors:\n${errors.join('\n')}`);

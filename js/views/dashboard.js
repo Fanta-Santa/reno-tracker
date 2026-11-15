@@ -6,7 +6,7 @@ import { html, useEffect, useMemo, useRef, useState } from '../lib.js';
 import { state, useStore, inboxExpenses, saveItem } from '../store.js';
 import { formatMoney, formatDate, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
-import { backupReminder, computeStats, spendOverTime, upcomingPayments } from '../stats.js';
+import { backupReminder, computeStats, spendOverTime, spentThisMonth, upcomingPayments } from '../stats.js';
 import { Page, Group, EmptyState, withBusy } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
@@ -39,7 +39,7 @@ function budgetStatus(stats) {
 }
 
 /** The first thing on the dashboard: what's been spent, against the budget, with the status and the key figures. */
-function SpentCard({ stats, onStatus }) {
+function SpentCard({ stats, month, onStatus }) {
   const status = budgetStatus(stats);
   const totalOver = stats.budget > 0 && stats.spent + stats.committed > stats.budget;
   const used = stats.budget ? Math.round((stats.spent / stats.budget) * 100) : null;
@@ -64,7 +64,7 @@ function SpentCard({ stats, onStatus }) {
         <strong class=${totalOver ? 'neg' : ''}>${stats.budget ? formatMoney(Math.abs(stats.remaining), { whole: true }) : '—'}</strong>
         ${totalOver && stats.committed > 0 && html`<small>counting accepted quotes</small>`}</div>
     </div>
-    <p class="kpi-foot">Includes ${formatMoney(stats.gst, { whole: true })} GST</p>
+    <p class="kpi-foot"><strong>${formatMoney(month, { whole: true })}</strong> this month · includes ${formatMoney(stats.gst, { whole: true })} GST</p>
   </section>`;
 }
 
@@ -72,7 +72,7 @@ function SpentCard({ stats, onStatus }) {
  * Room by room: what each room has spent against its own budget, the ones over (or nearly over) first. The little
  * house is a hint: tap the card to open the house up, or a room to open it on that room.
  */
-function RoomsCard({ rows, rooms, statsByRoom, onOpen, cardRef }) {
+function RoomsCard({ rows, rooms, statsByRoom, onOpen, onBudget, cardRef }) {
   const order = { over: 0, near: 1 };
   const sorted = [...rows].sort((a, b) => (order[a.status] ?? 2) - (order[b.status] ?? 2));
   return html`<section class="glass-card chart-card rooms-card" ref=${cardRef} aria-label="Rooms">
@@ -85,7 +85,7 @@ function RoomsCard({ rows, rooms, statsByRoom, onOpen, cardRef }) {
         <${House} rooms=${rooms} stats=${statsByRoom} open=${false} onOpen=${() => {}} onClose=${() => {}} onSelect=${() => {}} />
       </span>
     </button>
-    <${BudgetBars} rows=${sorted} onSelect=${(id) => onOpen(id)} />
+    <${BudgetBars} rows=${sorted} onSelect=${(id) => onOpen(id)} onBudget=${onBudget} />
     <div class="chart-legend">
       <span><span class="lg-swatch" style=${`background:${SERIES}`} />Spent</span>
       <span><span class="lg-swatch budget" />Budget</span>
@@ -279,6 +279,11 @@ export function DashboardView() {
   const statsByRoom = useMemo(() => new Map(stats.rooms.map((r) => [r.room.id, r])), [stats]);
   const activeRooms = state.rooms.filter((r) => !r.archived);
   const openHouse = (roomId) => openHouseView(roomsRef.current, roomId);
+  const setBudget = (roomId) => {
+    const room = state.rooms.find((r) => r.id === roomId);
+    if (room) openRoomEditor({ room, onSave: (next) => withBusy('Saving…', () => saveItem('rooms', next)) });
+  };
+  const month = useMemo(() => spentThisMonth(state.expenses, todayISO()), [state.expenses]);
 
   const inbox = inboxExpenses().length;
   const filed = state.expenses.filter((e) => e.status !== 'inbox');
@@ -295,10 +300,10 @@ export function DashboardView() {
   const upcoming = useMemo(() => upcomingPayments(state.quotes, state.expenses, todayISO()), [state.quotes, state.expenses]);
 
   return html`<${Page} title=${state.project.name} class="dashboard">
-    <${SpentCard} stats=${stats} onStatus=${() => openHouse()} />
+    <${SpentCard} stats=${stats} month=${month} onStatus=${() => openHouse()} />
 
     ${roomRows.length > 0 && html`<${RoomsCard} rows=${roomRows} rooms=${activeRooms} statsByRoom=${statsByRoom}
-      onOpen=${openHouse} cardRef=${roomsRef} />`}
+      onOpen=${openHouse} onBudget=${setBudget} cardRef=${roomsRef} />`}
 
     ${upcoming.length > 0 && html`<${ComingUp} upcoming=${upcoming} />`}
 

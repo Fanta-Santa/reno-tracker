@@ -4,7 +4,7 @@
 import { html, useEffect, useMemo, useState } from '../lib.js';
 import {
   state, useStore, activeRooms, activeCategories, roomById, categoryById, storeByName, blankExpense, blankQuote,
-  saveQuote, setQuoteStatus, deleteQuote, saveItem, uid,
+  saveQuote, setQuoteStatus, deleteQuote, saveItem, uid, matchingStores,
 } from '../store.js';
 import { addDays, centsToInput, daysBetween, formatDate, formatMoney, parseMoney, splitByWeights, todayISO } from '../format.js';
 import { roomType } from '../defaults.js';
@@ -409,9 +409,9 @@ function QuoteForm({ quote, close }) {
           onInput=${(e) => set({ supplier: e.currentTarget.value })}
           onBlur=${() => set((cur) => (cur.categoryIds.length ? {} : { categoryIds: [suggest(cur.description, cur.supplier)].filter(Boolean) }))} />
       </label>
-      ${state.stores.length > 0 && html`<div class="field-chips">
-        <${Chips} items=${state.stores.map((s) => ({ value: s.name, label: s.name }))}
-          value=${state.stores.find((s) => s.name.toLowerCase() === q.supplier.trim().toLowerCase())?.name}
+      ${matchingStores(q.supplier).length > 0 && html`<div class="field-chips">
+        <${Chips} items=${matchingStores(q.supplier).map((s) => ({ value: s.name, label: s.name }))}
+          value=${storeByName(q.supplier.trim())?.name}
           onChange=${(supplier) => set({ supplier })} />
       </div>`}
       <label class="field">

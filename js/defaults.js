@@ -26,6 +26,20 @@ export const SUGGESTED_ROOMS = [
   { name: 'General / whole house', type: 'whole' },
 ];
 
+// Offered as one-tap extras in setup, under the suggested rooms.
+export const MORE_ROOMS = [
+  { name: 'Laundry', type: 'laundry' },
+  { name: 'Bedroom', type: 'bedroom' },
+  { name: 'Living room', type: 'living' },
+  { name: 'Garage', type: 'garage' },
+  { name: 'Garden', type: 'outdoor' },
+  { name: 'Flooring', type: 'whole' },
+  { name: 'Electrical', type: 'whole' },
+  { name: 'Plumbing', type: 'whole' },
+  { name: 'Roof', type: 'exterior' },
+  { name: 'Fence', type: 'exterior' },
+];
+
 export const DEFAULT_CATEGORIES = [
   { name: 'Tools', isTool: true },
   { name: 'Hardware & fixings' },

@@ -173,6 +173,12 @@ function weekStart(iso) {
 
 const shortLabel = (iso) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}`;
 
+/** What's been spent in the month `today` falls in (filed expenses only). */
+export function spentThisMonth(expenses, today) {
+  const month = (today || '').slice(0, 7);
+  return expenses.filter((e) => e.status !== 'inbox' && (e.date || '').slice(0, 7) === month).reduce((s, e) => s + (e.totalCents || 0), 0);
+}
+
 /**
  * Spending per day, week or month (whichever suits the time span), with a running total.
  * Returns { unit, points: [{ start, label, amount, cumulative }] }.
