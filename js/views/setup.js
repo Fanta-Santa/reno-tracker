@@ -2,7 +2,7 @@
 
 import { html, useEffect, useState } from '../lib.js';
 import { createProject } from '../store.js';
-import { SUGGESTED_ROOMS, roomType } from '../defaults.js';
+import { SUGGESTED_ROOMS, MORE_ROOMS, roomType } from '../defaults.js';
 import { formatMoney } from '../format.js';
 import { Switch, toast } from '../ui/kit.js';
 import { Icon } from '../ui/icons.js';
@@ -66,6 +66,9 @@ export function SetupView() {
     room: { type: 'other', budgetCents: null },
     onSave: (next) => setRooms((list) => [...list, { ...next, key: Date.now(), on: true }]),
   });
+  // One-tap extras, until they're in the list
+  const more = MORE_ROOMS.filter((m) => !rooms.some((r) => r.name.toLowerCase() === m.name.toLowerCase()));
+  const addMore = (m) => setRooms((list) => [...list, { ...m, key: Date.now(), on: true, budgetCents: null }]);
   const finish = async () => {
     setSaving(true);
     try {
@@ -91,6 +94,13 @@ export function SetupView() {
         </div>`)}
         <button class="row tappable add-row" onClick=${add}><${Icon} name="plus" size=${20} /> Add a room or stage</button>
       </div>
+      ${more.length > 0 && html`<div class="more-rooms">
+        <span class="field-label">Also doing one of these? Tap to add it.</span>
+        <div class="chips wrap">
+          ${more.map((m) => html`<button class="chip" key=${m.name} onClick=${() => addMore(m)}>
+            <span class="chip-emoji" aria-hidden="true">${roomType(m.type).emoji}</span>${m.name}</button>`)}
+        </div>
+      </div>`}
     </div>
     <div class="setup-actions">
       <button class="wide-btn primary" disabled=${!chosen.length || saving} onClick=${finish}>

@@ -10,15 +10,18 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 ## What's in it so far (Stage 1)
 
 - First-run setup: name the project and pick rooms/stages, each with an optional budget and a type
-- Add an expense by photo, PDF/screenshot upload, or manual entry
+- Tap ＋ and the camera opens straight away. Snap the receipt, then **Check now** or **Sort later** (the camera stays
+  open for the next one). Typing it in, a PDF or photo, and quotes sit under the shutter. Photos are cropped to the
+  guide frame.
 - AUD amounts with GST worked out automatically (or GST-free / custom)
 - Split one receipt across several rooms and categories; flag tools
 - Receipt inbox: quick-snap now, fill in details later
-- Smart defaults: today's date, last store and room, and each store's usual category
+- Smart defaults: today's date, last store and room, each store's usual category, and each store's usual room (once
+  two receipts from a store have gone to the same room, the cards stop asking and say "as usual")
 - Duplicate warning (same store, date and total)
 - Expenses list with search, filters, sorting, swipe to delete, and an Undo bar instead of "Are you sure?"
 - Receipt viewer with pinch-zoom, including multi-page PDFs
-- While you fill in an expense, its receipt stays pinned at the top of the form, so you can read it as you go
+- While you fill in an expense or check its cards, the receipt stays pinned at the top, so you can read it as you go
 - Settings for rooms, categories and stores, plus a full backup and restore (.zip with every receipt)
 
 ## Receipt reading
@@ -42,9 +45,9 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
 ## Dashboard (Stage 2)
 
 - First, what you've spent so far: the total against your budget, with the budget status (✓ on track, ! nearly at
-  budget, ‼ over budget) and Budget · Committed (accepted quotes) · Remaining.
+  budget, ‼ over budget), Budget · Committed (accepted quotes) · Remaining, and this month's spending.
 - Then your rooms: what each room or stage has spent against its own budget (a full bar means it's all used), with
-  any over or nearly over budget first.
+  any over or nearly over budget first. A room without a budget has a **Set one** button right there.
 - Tap the Rooms card (or a room) and it opens up into an illustrated early-1900s Australian cottage on a floating
   island, built from your rooms: always single-storey, with rooms either side of a central hallway once there are more
   than three. Cream weatherboards, a coral corrugated-iron hipped roof (your roof/exterior work) and bullnose verandah
@@ -83,6 +86,8 @@ It's a web app you add to your iPhone Home Screen. There are no accounts and no 
   spreadsheet's references (R001 2026-10-01 Bunnings.jpg).
 - The backup reminder on the dashboard only shows when something has changed since your last backup: after
   14 days, or sooner once 10 or more receipts and quotes are new or changed.
+- Settings → **Start a new project** (when the reno's done, or another begins) saves a backup of the current project
+  first, then starts fresh at setup. The old project can be restored from that backup any time.
 
 ## The look ("Glass")
 

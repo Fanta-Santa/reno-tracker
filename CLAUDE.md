@@ -75,9 +75,21 @@ and there are no accounts. The owner is not a developer, so explain run/test ste
 - The expense form pins the receipt at the top (`ReceiptPeek`, sticky; scroll inside it to read, tap for the viewer,
   hidden or shown via `prefs.receiptPeek`; smaller while typing). Form children never shrink (`.form > *`), so a long
   form scrolls rather than squashing the receipt strip. Sheets are fitted to the visible part of the screen
-  (`--vv-top` / `--vv-height`, set by `SheetHost` from `visualViewport`), so they sit above the iPhone keyboard.
+  (`--vv-top` / `--vv-height`, set by `SheetHost` from `visualViewport`), so they sit above the iPhone keyboard. The
+  Spent card's foot shows `spentThisMonth()`.
 - `pickFiles('camera')` opens the app's own camera (`js/ui/camera.js`, getUserMedia with the torch on) unless
-  `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap.
+  `prefs.appCamera === false`; it falls back to the iPhone camera (`<input capture>`) from a tap. Photos are cropped
+  to the guide frame (`frameCrop()`, plus a 4% margin). The ＋ button (`openAddMenu` in `js/views/capture.js`) opens
+  `openAddCamera()` straight away: after a photo, Check now (cards) or Sort later (inbox, camera stays open); the
+  other ways in (Type it in, PDF / photo, Quote) are `extras` under the shutter, and an extra with `pick()` runs it
+  from the tap so the file picker opens. With the app camera off or unsupported, ＋ shows the old action sheet.
+- Each store learns its room (`defaultRoomId`, `roomStreak` in `learnFrom()`): `lastRoomFor()` prefills the room
+  (cards, and the form when a store chip is picked), and once the last two receipts agree (`usualRoomId()`) the room
+  card is skipped and the summary card shows "as usual · Change". `matchingStores(text)` filters store chips as you
+  type. Setup offers `MORE_ROOMS` as one-tap chips.
+- `ReceiptPeek` (`js/ui/receipt-peek.js`) is shared by the expense form and the check cards (`compact` there; swipes
+  don't start on it). Settings → Start a new project (`runStartFresh`) backs up first, then `startFresh()` clears
+  every store, keeping only the camera/reader/peek prefs.
 - The friends' guide is `guide.html` (+ `css/guide.css`, on top of `css/app.css`): a plain page with no app code, linked
   from Settings (`?from=app` turns its buttons into "Back to the app") and shared by `shareWithFriend()`, which sends
   only the link. Keep it in step with the app when features or install steps change. The service worker serves the

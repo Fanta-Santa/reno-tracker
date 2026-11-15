@@ -371,8 +371,8 @@ export function pickFiles(kind, { multiple = false } = {}) {
   return nativePicker(kind, { multiple });
 }
 
-/** The phone's own picker: the iPhone camera, the photo library or Files. */
-function nativePicker(kind, { multiple }) {
+/** The phone's own picker: the iPhone camera, the photo library or Files. Must be called straight from a tap. */
+export function nativePicker(kind, { multiple = false } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';

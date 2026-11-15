@@ -612,7 +612,14 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
   transition: height 0.3s var(--spring);
 }
 .receipt-peek.small .peek-frame { height: clamp(120px, 20vh, 180px); } /* while typing, above the keyboard */
-.peek-frame img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+.receipt-peek.compact .peek-frame { height: clamp(130px, 24vh, 230px); } /* on the check cards */
+.flash-card .receipt-peek {
+  top: -20px; margin: -20px -18px 4px; padding: 10px 18px 10px; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: rgba(255, 255, 255, 0.94); box-shadow: 0 10px 16px -14px rgba(120, 60, 140, 0.4);
+}
+.flash-card .peek-tools { right: 28px; top: 20px; }
+.flash-card .peek-bar { margin-bottom: 2px; }
+.peek-frame img { display: block; width: 100%; height: auto; cursor: zoom-in; -webkit-user-drag: none; user-select: none; -webkit-user-select: none; }
 .peek-loading { display: grid; place-items: center; height: 100%; }
 .peek-tools { position: absolute; top: 14px; right: calc(var(--gutter) + 10px); display: flex; gap: 6px; }
 .peek-btn, .peek-count {
@@ -815,8 +822,14 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 
 /* Budget bars */
 .bb { display: flex; flex-direction: column; }
+.bb-item { position: relative; }
 .bb-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; text-align: left; width: 100%; }
-.bb-row + .bb-row { border-top: 1px solid rgba(255, 255, 255, 0.85); }
+.bb-item + .bb-item { border-top: 1px solid rgba(255, 255, 255, 0.85); }
+.bb-set {
+  position: absolute; right: 0; bottom: 8px; z-index: 1; min-height: 30px; padding: 4px 12px; border-radius: 15px;
+  color: var(--accent); font-size: 13px; font-weight: 700; background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
 .bb-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .bb-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .bb-value { font-weight: 700; white-space: nowrap; }
@@ -910,6 +923,11 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 }
 .big-input:focus { box-shadow: 0 0 0 2px var(--accent); }
 .setup-room { padding-right: 14px; }
+.more-rooms { display: flex; flex-direction: column; gap: 8px; padding: 0 4px; }
+.sum-room { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 14px; background: var(--surface-2); font-size: 15px; }
+.sum-room small { color: var(--text-2); font-size: 13px; }
+.room-tile small { font-size: 12px; font-weight: 500; color: var(--text-2); }
+.room-tile.on small { color: var(--accent); }
 .setup-room.off .setup-room-main { opacity: 0.45; }
 .setup-room-main { flex: 1; display: flex; align-items: center; gap: 12px; text-align: left; min-width: 0; }
 .install-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -998,12 +1016,6 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .fc-kicker { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
 .fc-sub { color: var(--text-2); font-size: 15px; }
 .fc-sub strong { color: var(--text); }
-.fc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.fc-receipt {
-  flex: none; width: 64px; height: 84px; border-radius: 12px; overflow: hidden; background: var(--surface-2);
-  box-shadow: var(--shadow-card);
-}
-.fc-receipt img, .fc-receipt .thumb { width: 100% !important; height: 100% !important; object-fit: cover; border-radius: 0; }
 .fc-fields { display: flex; flex-direction: column; gap: 10px; }
 .fc-field {
   display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: var(--radius-md);
@@ -1135,6 +1147,25 @@ html.sheet-open .toast { top: calc(var(--safe-top) + 10px); bottom: auto; animat
 .camera-message strong { max-width: 300px; font-size: 17px; }
 .camera-message .wide-btn { max-width: 300px; }
 .wide-btn.plain.light { color: #fff; }
+/* The ＋ camera: the other ways in sit under the shutter, and after a photo you choose Check now or Sort later */
+.camera.add .camera-frame { bottom: calc(var(--safe-bottom) + 226px); }
+.camera.add .camera-tip { bottom: calc(var(--safe-bottom) + 184px); }
+.camera-extras { position: absolute; z-index: 2; left: 0; right: 0; bottom: calc(var(--safe-bottom) + 128px); display: flex; justify-content: center; gap: 8px; padding: 0 12px; }
+.camera-message .camera-extras { position: static; flex-wrap: wrap; }
+.camera-extra {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 19px;
+  color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap;
+  background: rgba(40, 40, 44, 0.55); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.camera-choices {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 16px 16px calc(var(--safe-bottom) + 18px); background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.6));
+}
+.camera-choice-row { display: flex; gap: 10px; width: 100%; max-width: 480px; }
+.camera-choice-row .wide-btn { flex: 1; min-height: 56px; }
+.camera-choice-row .wide-btn.primary { flex: 1.3; }
+.wide-btn.secondary.dark { background: rgba(255, 255, 255, 0.18); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.camera-stack.inbox { display: grid; place-items: center; border-radius: 12px; background: rgba(40, 40, 44, 0.55); color: #fff; }
 
 /* ---------- Dashboard house ---------- */
 

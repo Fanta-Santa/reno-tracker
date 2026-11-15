@@ -14,7 +14,7 @@ export const state = {
   learned: {}, // receipt item → the category you chose for it: { [itemKey]: { categoryId, isTool } }
   rooms: [], // { id, name, type, budgetCents, order, archived }
   categories: [], // { id, name, isTool, order, archived }
-  stores: [], // { id, name, defaultCategoryId, order }
+  stores: [], // { id, name, defaultCategoryId, defaultRoomId, roomStreak, order }
   expenses: [], // see blankExpense()
   quotes: [], // see blankQuote()
 };
@@ -77,6 +77,25 @@ export const activeCategories = () => state.categories.filter((c) => !c.archived
 export const roomById = (id) => state.rooms.find((r) => r.id === id);
 export const categoryById = (id) => state.categories.find((c) => c.id === id);
 export const storeByName = (name) => state.stores.find((s) => sameText(s.name, name));
+
+/** The room this store's last receipt went to, if that room still exists. */
+export function lastRoomFor(storeName) {
+  const id = storeByName(storeName)?.defaultRoomId;
+  return id && state.rooms.some((r) => r.id === id && !r.archived) ? id : null;
+}
+
+/** The room a store "always" goes to: its last two receipts went there. Null until it's settled. */
+export function usualRoomId(storeName) {
+  const store = storeByName(storeName);
+  return store && (store.roomStreak || 0) >= 2 ? lastRoomFor(storeName) : null;
+}
+
+/** Store chips for what's been typed so far: all of them for nothing (or an exact match), else the ones that fit. */
+export function matchingStores(text) {
+  const t = (text || '').trim().toLowerCase();
+  if (!t || state.stores.some((s) => s.name.toLowerCase() === t)) return state.stores;
+  return state.stores.filter((s) => s.name.toLowerCase().includes(t));
+}
 export const filedExpenses = () => state.expenses.filter((e) => e.status !== 'inbox');
 export const inboxExpenses = () => state.expenses.filter((e) => e.status === 'inbox');
 export const gstRate = () => state.project?.gstRate ?? 0.1;
@@ -185,7 +204,10 @@ export function findDuplicates(expense) {
     && sameText(e.store, expense.store));
 }
 
-/** Remembers the last store and room, and each store's usual category. */
+/**
+ * Remembers the last store and room, and each store's usual category and room. A store's room counts how many
+ * receipts in a row went there (roomStreak), so the check cards can stop asking once it's settled.
+ */
 async function learnFrom(expense) {
   if (expense.status === 'inbox' || !expense.lines.length) return;
   const main = [...expense.lines].sort((a, b) => Math.abs(b.amountCents) - Math.abs(a.amountCents))[0];
@@ -193,9 +215,10 @@ async function learnFrom(expense) {
   const storeName = expense.store.trim();
   if (storeName) {
     const existing = storeByName(storeName);
+    const roomStreak = existing?.defaultRoomId === main.roomId ? (existing.roomStreak || 1) + 1 : 1;
     if (existing) {
-      if (existing.defaultCategoryId !== main.categoryId) {
-        const updated = { ...existing, defaultCategoryId: main.categoryId };
+      if (existing.defaultCategoryId !== main.categoryId || existing.defaultRoomId !== main.roomId || existing.roomStreak !== roomStreak) {
+        const updated = { ...existing, defaultCategoryId: main.categoryId, defaultRoomId: main.roomId, roomStreak };
         state.stores = state.stores.map((s) => (s.id === updated.id ? updated : s));
         ops.push({ store: 'stores', put: updated });
       }
@@ -204,6 +227,8 @@ async function learnFrom(expense) {
         id: uid(),
         name: storeName,
         defaultCategoryId: main.categoryId,
+        defaultRoomId: main.roomId,
+        roomStreak,
         order: state.stores.reduce((max, s) => Math.max(max, s.order ?? 0), -1) + 1,
       };
       state.stores = [...state.stores, added];
@@ -472,6 +497,21 @@ export async function moveItem(kind, id, direction) {
 }
 
 // ---------- Whole-database operations (backup / restore) ----------
+
+/**
+ * Starts fresh: everything on this phone is deleted (back up first!) and the app goes back to setup. Your
+ * settings for the camera, the reader and the pinned receipt are kept; nothing from the old project is.
+ */
+export async function startFresh() {
+  const { appCamera, cameraLight, autoRead, receiptPeek } = state.prefs;
+  await db.write([
+    ...db.STORE_NAMES.map((store) => ({ store, clear: true })),
+    { store: 'meta', put: { key: 'prefs', appCamera, cameraLight, autoRead, receiptPeek } },
+  ]);
+  for (const url of thumbUrls.values()) if (url) URL.revokeObjectURL(url);
+  thumbUrls.clear();
+  await loadAll();
+}
 
 export async function replaceEverything(data, files) {
   await db.write([

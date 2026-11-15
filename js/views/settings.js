@@ -1,7 +1,7 @@
 // Settings: project name, rooms/stages, categories, stores, backup & restore, and this phone's storage.
 
 import { html, useEffect, useState } from '../lib.js';
-import { state, useStore, updateProject, saveItem, removeItem, moveItem, isInUse, setPrefs } from '../store.js';
+import { state, useStore, updateProject, saveItem, removeItem, moveItem, isInUse, setPrefs, startFresh } from '../store.js';
 import { roomType } from '../defaults.js';
 import { formatBytes, formatMoney, formatTimestamp } from '../format.js';
 import { saveBackup, inspectBackup, restoreBackup } from '../backup.js';
@@ -45,6 +45,34 @@ export async function runRestore() {
     navigate('/', { replace: true });
     toast('Backup restored', { icon: 'check' });
   }
+}
+
+/**
+ * Starting over (the reno's done, or a new one is starting): a backup of everything goes to Files first, so the
+ * old project can be restored any time, then this phone starts fresh at setup.
+ */
+export async function runStartFresh() {
+  const name = state.project?.name || 'this project';
+  const ok = await confirmAction({
+    title: 'Start a new project?',
+    message: `First, a backup of “${name}” with every receipt is saved (to Files or iCloud Drive), so you can restore it later. Then this phone starts fresh.`,
+    confirmLabel: 'Back up, then start fresh',
+    destructive: false,
+  });
+  if (!ok) return;
+  const saved = await withBusy('Packing up your receipts…', saveBackup);
+  if (!saved) {
+    const anyway = await confirmAction({
+      title: 'Start fresh without a backup?',
+      message: `Everything in “${name}” will be deleted from this phone, and there’ll be no way to get it back.`,
+      confirmLabel: 'Delete it all and start fresh',
+    });
+    if (!anyway) return;
+  }
+  const done = await withBusy('Starting fresh…', async () => { await startFresh(); return true; });
+  if (!done) return;
+  navigate('/', { replace: true });
+  toast(saved ? `Starting fresh. “${name}” is in the backup you just saved.` : 'Starting fresh.', { icon: 'check', duration: 8000 });
 }
 
 // ---------- Sharing the app ----------
@@ -128,8 +156,9 @@ export function SettingsView() {
       ${install === 'offer' && html`<button class="pill-btn" onClick=${promptInstall}>Install</button>`}
     </div>`}
 
-    <${Group} title="Project">
+    <${Group} title="Project" footer="Finished this reno, or starting another? A new project backs this one up first, then starts with a clean slate.">
       <${Row} icon="🏡" label="Name" detail=${state.project.name} onClick=${renameProject} />
+      <${Row} icon="plus" iconBg="#E8336F" label="Start a new project" onClick=${runStartFresh} />
     <//>
 
     <${Group} title="Lists" footer="These fill the quick-pick buttons when you add an expense.">
