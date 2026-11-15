@@ -179,7 +179,25 @@ try {
     await tap(page.getByRole('switch', { name: 'Read receipts automatically' }));
     await choose(async () => tap(await addMenu('Upload PDF or screenshot')), join(FIXTURES, 'receipt.jpg'));
     await sheet().locator('.receipt-tile img').waitFor();
+    // The receipt is pinned at the top of the form, and stays in view while you scroll down to the fields.
+    const peek = sheet().locator('.receipt-peek .peek-frame img');
+    await peek.waitFor();
+    // The thumbnails underneath aren't squashed by the fields below them (they used to be, in a long form).
+    assert.ok((await sheet().locator('.receipt-strip').boundingBox()).height >= 80, 'the receipt strip is cut off');
     await shot('form-with-photo');
+    await sheet().locator('.sheet-body').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await sheet().getByPlaceholder('Warranty, colour code, returns…').click();
+    await page.waitForTimeout(450);
+    const frame = await sheet().locator('.peek-frame').boundingBox();
+    const header = await sheet().locator('.sheet-header').boundingBox();
+    assert.ok(frame.y >= header.y + header.height - 2 && frame.y < header.y + header.height + 20, 'the receipt stays at the top');
+    assert.ok(frame.height > 100, 'and big enough to read');
+    await shot('form-receipt-pinned');
+    // It can be tucked away (remembered), and brought back.
+    await tap(sheet().locator('.peek-btn', { hasText: 'Hide' }));
+    await sheet().getByText('Show the receipt while you fill this in').waitFor();
+    await tap(sheet().getByText('Show the receipt while you fill this in'));
+    await peek.waitFor();
     await tap(sheet().getByText('Sort later (save to inbox)'));
     await expectToast('Saved to inbox to sort later');
     await tap(page.locator('.tab', { hasText: 'Expenses' }));
@@ -301,38 +319,46 @@ try {
 
   await check('dashboard totals', async () => {
     await tap(page.locator('.tab', { hasText: 'Home' }));
-    await page.locator('.kpi-big', { hasText: '$456' }).waitFor();
+    await page.locator('.spent-card .kpi-big', { hasText: '$456' }).waitFor();
     await page.locator('.sb-item', { hasText: 'Tools' }).locator('strong', { hasText: '$200' }).waitFor();
-    // The house starts with its roof on and the budget status at the top right; tapping it lifts the roof.
+    // Spent so far comes first, with the budget status inside it. No warning boxes, and the house is only a little
+    // picture on the Rooms card, which lists every room against its own budget.
+    assert.equal(await page.locator('.page-body > *').first().evaluate((el) => el.classList.contains('spent-card')), true);
+    assert.equal(await page.locator('.alert, .status-pill').count(), 0);
+    await page.locator('.spent-card .status-chip').waitFor();
+    await page.locator('.rooms-card .bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     assert.equal(await page.locator('.house-pin').count(), 0);
-    await page.locator('.nav-actions .status-pill').waitFor();
-    await shot('dashboard-roof-on');
-    await tap(page.locator('.nav-actions .status-pill'));
-    await page.locator('.house.open').waitFor();
-    assert.equal(await page.locator('.nav-actions .status-pill').count(), 0);
-    // Tap a room on the house to see its spending, then jump to its expenses.
+    await shot('dashboard-top');
+    // Tapping the Rooms card opens it up into the house, and the roof lifts. Tap a room to see its spending.
+    await tap(page.locator('.rooms-head'));
+    await page.locator('.house-view .house.open').waitFor();
     await tap(page.getByRole('button', { name: 'Kitchen: On track' }));
-    await page.locator('.room-card h3', { hasText: 'Kitchen' }).waitFor();
+    await page.locator('.house-view .room-card h3', { hasText: 'Kitchen' }).waitFor();
     await page.locator('.rc-numbers', { hasText: '$205' }).getByText('$500').waitFor();
     await shot('dashboard-room');
     await tap(page.locator('.room-card').getByRole('button', { name: 'See all 2 expenses' }));
     await page.locator('.chip.removable', { hasText: 'Kitchen' }).waitFor();
+    assert.equal(await page.locator('.house-view').count(), 0, 'going to another screen closes the house');
     assert.equal(await page.locator('.expense-row').count(), 2);
     await tap(page.locator('.chip.removable', { hasText: 'Kitchen' }));
     await tap(page.locator('.tab', { hasText: 'Home' }));
-    // Budget bars: the kitchen's budget is $500.
-    await page.locator('.bb-row', { hasText: 'Kitchen' }).getByText('of $500').waitFor();
     await page.getByText('2 expenses are missing a receipt').waitFor();
     await shot('dashboard');
-    // Drag the roof back down onto the house: the rooms close up and the status comes back.
-    if (await page.locator('.room-card h3').count()) await tap(page.locator('.room-card').getByRole('button', { name: 'Close' }));
-    await page.locator('.house-caption').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(400);
-    const roof = await page.locator('.layer-roof').boundingBox();
+    // A room's row opens the house on that room; ✕ shrinks it back into the card.
+    await tap(page.locator('.rooms-card .bb-row', { hasText: 'Kitchen' }));
+    await page.locator('.house-view .room-card h3', { hasText: 'Kitchen' }).waitFor();
+    await tap(page.getByRole('button', { name: 'Close the house' }));
+    await page.locator('.house-view').waitFor({ state: 'detached' });
+    // Open it again and drag the roof back down: the house closes up and shrinks back into the card.
+    await tap(page.locator('.rooms-head'));
+    await page.locator('.house-view .house.open').waitFor();
+    await page.locator('.house-view .house-caption').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(900);
+    const roof = await page.locator('.house-view .layer-roof').boundingBox();
     const [mx, my] = await page.evaluate(() => { // how far the roof was lifted, in screen pixels
-      const svg = document.querySelector('.house-svg');
+      const svg = document.querySelector('.house-view .house-svg');
       const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
-      const [, x, y] = document.querySelector('.layer-roof').style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+      const [, x, y] = document.querySelector('.house-view .layer-roof').style.transform.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
       return [Number(x) * scale, Number(y) * scale];
     });
     const [cx, cy] = [roof.x + roof.width / 2, roof.y + roof.height * 0.6];
@@ -340,9 +366,9 @@ try {
     await page.mouse.down();
     for (let i = 1; i <= 10; i++) await page.mouse.move(cx - (mx * i) / 10, cy - (my * i) / 10);
     await page.mouse.up();
-    await page.locator('.house.closed').waitFor();
-    await page.locator('.nav-actions .status-pill').waitFor();
-    assert.equal(await page.locator('.house-caption').count(), 0);
+    await page.locator('.house-view .house.closed').waitFor();
+    await page.locator('.house-view').waitFor({ state: 'detached' });
+    await page.locator('.spent-card').waitFor();
   });
 
   await check('export to Excel, a CSV with the receipt photos, and just the filtered list', async () => {
@@ -376,9 +402,10 @@ try {
     const csv = await (await bundle.get(names.find((n) => n.endsWith('.csv'))).blob()).text();
     assert.match(csv, /Mitre 10 Online/);
 
-    // The Expenses list, filtered to the kitchen (from the budget bars), exports just that.
+    // The Expenses list, filtered to the kitchen (Rooms card → the house → the kitchen's expenses), exports just that.
     await tap(page.locator('.tab', { hasText: 'Home' }));
-    await tap(page.locator('.bb-row', { hasText: 'Kitchen' }));
+    await tap(page.locator('.rooms-card .bb-row', { hasText: 'Kitchen' }));
+    await tap(page.locator('.house-view .room-card').getByRole('button', { name: 'See all 2 expenses' }));
     await page.locator('.chip.removable', { hasText: 'Kitchen' }).waitFor();
     await tap(page.getByRole('button', { name: 'Export' }));
     await sheet().locator('.chip.on', { hasText: 'As filtered (2)' }).waitFor();
